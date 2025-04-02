@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+Draft
+Code
+renv
+saved_details/Recovery_full/RecoveryResult*
+saved_details/Recovery_full/SampledData*
+saved_details/Recovery_restricted/RecoveryResult*
+saved_details/Recovery_restricted/SampledData*
+
