@@ -1,2 +1,2 @@
 # TransformationsInHierarchicalModels
-This repository contains the materials for the paper "A cautionary note on parameter transformation in hierarchical models"
+This repository contains the materials for the paper "An unbiased parameter transformation in hierarchical models"
