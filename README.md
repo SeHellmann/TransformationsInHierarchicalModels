@@ -3,8 +3,11 @@ This repository contains the materials for the paper "A biased parameter transfo
 
 
 ## Complete reproducibility
-To completely reproduce the exact results from sctrach, remove all `.RData` files, install JAGS (version 4.3.1). 
-Then, open the RProject, install the `renv` package, and call `renv::activate()` and `renv::restore()`. Then, source the `Main_Script.R`. 
+To completely reproduce the exact results from sctrach (which will take pretty long), do the follwing:
+- remove all `.RData` files, 
+- install JAGS (version 4.3.1)
+- open the RProject, install the `renv` package, and call `renv::activate()` and `renv::restore()`
+- set in line 8 of `Main_Script.R`: `REDOALLANALYSIS <- TRUE` and run the script
 
 ## Reproduce results without doing MCMC sampling again
 Install all packages (or use `renv::restore()`), and source the `Main_Script.R`. 

@@ -5,6 +5,8 @@
 
 # Sebastian Hellmann, April 2025
 
+REDOALLANALYSIS <- FALSE
+
 ## Structure:
 # Preamble and imports    
 #____________________________________________________________
@@ -228,47 +230,50 @@ Nsbjs <- c(20, 50, 90) # number of subjects
 variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
 
 ## Actually do the simulation, save simulation, and model fitting
-dir.create("saved_details/Recovery_full", showWarnings = FALSE)
-N <- VAR <- PHI <- 1
-for (N  in 1:3) {
-  cur_n <- Nsbjs[N]
-  Data <- matrix(NA, nrow=60, ncol=cur_n)
-  for (VAR in 1:3) {
-    cur_var <- variabilities[VAR]
-    for ( PHI in 1:3) {
-      if (PHI==1 && VAR==1 && N==1) next
-      cur_sens <- phis[PHI]
-      ## Only if the saved samples do not already exists
-      if (!file.exists(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
-        ## Make it reproducible
-        seeeed <- 2201 + 100*N + 10*VAR + PHI 
-        set.seed(seeeed)
-        
-        ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
-        Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
-        Betas  <- rbeta(cur_n,  alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
-        Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
-        Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
-        # Draw from Gamma distribution with mean lambda and variance cur_var
-        Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
-        
-        for (k in 1:cur_n) {
-          Data[,k] <- simulate_CPT_individ(Alphas[k], Betas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
+## Only do this, when all analysis should be done again (takes long!)
+if (REDOALLANALYSIS) {
+  dir.create("saved_details/Recovery_full", showWarnings = FALSE)
+  N <- VAR <- PHI <- 1
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    Data <- matrix(NA, nrow=60, ncol=cur_n)
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      for ( PHI in 1:3) {
+        if (PHI==1 && VAR==1 && N==1) next
+        cur_sens <- phis[PHI]
+        ## Only if the saved samples do not already exists
+        if (!file.exists(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
+          ## Make it reproducible
+          seeeed <- 2201 + 100*N + 10*VAR + PHI 
+          set.seed(seeeed)
+          
+          ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
+          Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
+          Betas  <- rbeta(cur_n,  alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
+          Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
+          Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
+          # Draw from Gamma distribution with mean lambda and variance cur_var
+          Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
+          
+          for (k in 1:cur_n) {
+            Data[,k] <- simulate_CPT_individ(Alphas[k], Betas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
+          }
+          params <- data.frame(alpha=Alphas, beta=Betas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
+          simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
+          save(Data, params, simulation_pars,
+               file=paste0("saved_details/Recovery_full/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+          
+          rec_samples =  jags.parallel(data, parameters,
+                                       model.file = original_full_model_recovery,
+                                       inits = inits,  n.chains = 4,
+                                       n.iter = 50000, n.burnin = 1000,
+                                       n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
+          
+          save(Data, params, simulation_pars, rec_samples, 
+               file=paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+          
         }
-        params <- data.frame(alpha=Alphas, beta=Betas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
-        simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
-        save(Data, params, simulation_pars,
-             file=paste0("saved_details/Recovery_full/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-        
-        rec_samples =  jags.parallel(data, parameters,
-                                     model.file = original_full_model_recovery,
-                                     inits = inits,  n.chains = 4,
-                                     n.iter = 50000, n.burnin = 1000,
-                                     n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
-        
-        save(Data, params, simulation_pars, rec_samples, 
-             file=paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-        
       }
     }
   }
@@ -451,46 +456,48 @@ Nsbjs <- c(20, 50, 90) # number of subjects
 variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
 
 ## Actually do the simulation, save simulation, and model fitting
-dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
-N <- VAR <- PHI <- 1
-for (N  in 1:3) {
-  cur_n <- Nsbjs[N]
-  Data <- matrix(NA, nrow=60, ncol=cur_n)
-  for (VAR in 1:3) {
-    cur_var <- variabilities[VAR]
-    for ( PHI in 1:3) {
-      cur_sens <- phis[PHI]
-      seeeed <- 2201 + 100*N + 10*VAR + PHI 
-      set.seed(seeeed)
-      ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
-      Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
-      Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
-      Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
-      # Draw from Gamma distribution with mean lambda and variance cur_var
-      Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
-      
-      for (k in 1:cur_n) {
-        Data[,k] <- simulate_CPT_individ(Alphas[k], Alphas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
+## Only do this, when all analysis should be done again (takes long!)
+if (REDOALLANALYSIS) {
+  dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
+  N <- VAR <- PHI <- 1
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    Data <- matrix(NA, nrow=60, ncol=cur_n)
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      for ( PHI in 1:3) {
+        cur_sens <- phis[PHI]
+        seeeed <- 2201 + 100*N + 10*VAR + PHI 
+        set.seed(seeeed)
+        ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
+        Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
+        Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
+        Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
+        # Draw from Gamma distribution with mean lambda and variance cur_var
+        Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
+        
+        for (k in 1:cur_n) {
+          Data[,k] <- simulate_CPT_individ(Alphas[k], Alphas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
+        }
+        params <- data.frame(alpha=Alphas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
+        simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
+        save(Data, params, simulation_pars,
+             file=paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        
+        rec_samples =  jags.parallel(data, parameters,
+                                     model.file = original_restricted_model_recovery,
+                                     inits = inits,  n.chains = 4,
+                                     n.iter = 50000, n.burnin = 1000,
+                                     n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
+        
+        
+        save(Data, params, simulation_pars, rec_samples, 
+             file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        
       }
-      params <- data.frame(alpha=Alphas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
-      simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
-      save(Data, params, simulation_pars,
-           file=paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-      
-      rec_samples =  jags.parallel(data, parameters,
-                                   model.file = original_restricted_model_recovery,
-                                   inits = inits,  n.chains = 4,
-                                   n.iter = 50000, n.burnin = 1000,
-                                   n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
-      
-      
-      save(Data, params, simulation_pars, rec_samples, 
-           file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-      
     }
   }
 }
-
 
 ## When the fitting is done, we load the results and combine the simulations
 if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")) {
