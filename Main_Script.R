@@ -4,7 +4,7 @@
 #__________________________________________________________----
 
 # Sebastian Hellmann, April 2025
-
+rm(list = ls())
 REDOALLANALYSIS <- FALSE
 
 ## Structure:
@@ -26,13 +26,13 @@ REDOALLANALYSIS <- FALSE
 # D  Re-do (Extended) original simulation study (alpha=beta)       
 ## 1. Subset data and define JAGS settings                         
 ## 2. Actual parameter recovery analysis                           
-## 3. Visualize original full parameter recovery analysis          
+## 3. Visualize original restricted parameter recovery analysis          
 # E  Simulation study using wider parameter ranges (alpha=beta)         --> STILL TO BE DONE
 # F  Simulation study using wider parameter ranges + correlated pars    --> STILL TO BE DONE
 
 
 # Preamble and imports                                     ----
-rm(list = ls())
+
 # use RStudio to find script file path
 script_path <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(script_path)
@@ -51,14 +51,19 @@ print(getwd())
     # To use Times as font on Windows (otherwise ignore the ggplot warnings)
     windowsFonts(Times=windowsFont("Times New Roman"))
   }
+  two_colors_transformations <- c("#1b9e77", "#fc8d62")
+  # color_values <- palette.colors(n = 3, palette = "R4")[-1]
+  # color_values <- palette.colors(n = 3, palette = "Okab")[-1] %>% as.character()
+  # color_values <- palette.colors(n = 2, palette = "Okab") %>% as.character()
   custom_theme <- theme_bw()+
     theme(text = element_text(family = "Times", size=12),
+          strip.text = element_text(family="Times", size=12),
           legend.position = "bottom",
           plot.margin = margin(0, 0, 0, 0, "cm"),
           axis.text = element_text(size=12, family="Times", color="black"),
           legend.spacing = unit(0,"line"),
           legend.key.width=unit(1,"line"),
-          panel.spacing=unit(0, "lines"))
+          panel.spacing=unit(1, "lines"))
   dir.create("figures", showWarnings = FALSE)
   dir.create("saved_details", showWarnings = FALSE)
 }
@@ -68,9 +73,6 @@ original_full_model = "jags_models/cpt_hierarchical_model.txt"
 original_full_model_recovery = "jags_models/cpt_hierarchical_recovery.txt"
 original_restricted_model_recovery = "jags_models/cpt_hierarchical_restricted_recovery.txt"
 
-
-original_full_model = "cpt_hierarchical_model.txt"
-original_full_model = "cpt_hierarchical_model.txt"
 
 
 #___________________________________________________________________----
@@ -83,8 +85,8 @@ original_full_model = "cpt_hierarchical_model.txt"
 # probability of outcome 1 (column 2), 
 # value of outcome 2 (column 3), 
 # probability of outcome 2 (column 4) (gambles in rows).
-prospects.b.temp <- as.matrix(read.table("GambleB.txt"))
-prospects.a.temp <- as.matrix(read.table("GambleA.txt"))
+prospects.b.temp <- as.matrix(read.table("Rieskamp_2008_data/GambleB.txt"))
+prospects.a.temp <- as.matrix(read.table("Rieskamp_2008_data/GambleA.txt"))
 
 prospects.b <- array(0,dim=c(180,4))
 prospects.a <- array(0,dim=c(180,4))
@@ -107,12 +109,10 @@ for (i in 1:180){
     prospects.b[i,3:4] <- prospects.b.temp[i,1:2] 
   }
 }
-prospects.a <- prospects.a[121:180,]
-prospects.b <- prospects.b[121:180,]
 
 # Load data (choice made by the first participant when presented the 
 # second gamble-pair is saved in column 1 row 2)
-rawdata <- as.matrix(read.table("Rieskamp_data.txt"))
+rawdata <- as.matrix(read.table("Rieskamp_2008_data/Rieskamp_data.txt"))
 
 
 ## 2. Fit the hierarchical CPT-model                                ----
@@ -163,11 +163,6 @@ group_pars_summary <- temp_summary %>%
   filter(grepl(parname, pattern = "mu"))
 
 pd <- position_dodge(width=0.2)
-
-two_colors_transformations <- c("#1b9e77", "#fc8d62")
-# color_values <- palette.colors(n = 3, palette = "R4")[-1]
-# color_values <- palette.colors(n = 3, palette = "Okab")[-1] %>% as.character()
-# color_values <- palette.colors(n = 2, palette = "Okab") %>% as.character()
 group_pars_summary %>% 
   filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
@@ -331,10 +326,10 @@ if (!file.exists("saved_details/Recovery_full/Collected_recovery_results.RData")
   collected_samples <- collected_samples %>% 
     #filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
     pivot_longer(1:12, names_to="parname") %>%
-    mutate(Computation = ifelse(grepl("sebi", parname), "Sebis", "Original"), 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
            Parameter = sub("_sebi", "", sub("mu.", "", parname)))
   collected_summaries <- collected_summaries %>% 
-    mutate(Computation = ifelse(grepl("sebi", parname), "Sebis", "Original"), 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
            Parameter = sub("_sebi", "", sub("mu.", "", parname)))
   
   save(collected_samples,collected_summaries, collected_true_pop_means, 
@@ -351,19 +346,26 @@ plot_samples <- filter(collected_samples, sens==0.4 & var%in%c(0.1, 1) & N == 20
   filter(Parameter != "luce")
 true_params <- data.frame(Parameter= c("alpha", "beta", "gamma","delta","lambda"), 
                           value    = c(   .88,    .88,       .61,    .69,  2.25))
-ggplot(plot_samples, aes(x=value, linetype=as.factor(var), color=Computation))+
+ggplot(plot_samples, aes(x=value, linetype=as.factor(var), color=Transformation))+
   geom_vline(data=true_params, aes(xintercept=value))+
-  geom_density(aes(group=interaction(Computation, Parameter, var)), linewidth=1)+
-  facet_wrap(.~Parameter, scales = "free")
+  geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
+  scale_color_manual(values=two_colors_transformations)+
+  facet_wrap(.~Parameter, scales = "free", labeller=label_parsed)+
+  labs(y="Posterior density", x="Parameter value", linetype="Variability")+
+  custom_theme+
+  theme(plot.margin = margin(0, 0.3, 0, 0, "cm"))
+ggsave("figures/Recovery_full_posteriordists.eps",
+       width = 23, height=9/0.6, units="cm",dpi=600, device = cairo_ps)
 
-true_params <- data.frame(Parameter= c("alpha", "beta", "gamma","delta","lambda"), 
-                          value    = c(   .88,    .88,       .61,    .69,  2.25))
-pd <- position_dodge(width=0.4)
-ggplot(filter(collected_summaries,Parameter!="luce"), aes(y=mean, x=interaction(N,var), color=Computation))+
-  geom_hline(data=true_params, aes(yintercept=value))+
-  geom_point(position=pd)+
-  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), position=pd, width=0.2)+
-  facet_grid(Parameter~sens, scales = "free")
+
+# true_params <- data.frame(Parameter= c("alpha", "beta", "gamma","delta","lambda"), 
+#                           value    = c(   .88,    .88,       .61,    .69,  2.25))
+# pd <- position_dodge(width=0.4)
+# ggplot(filter(collected_summaries,Parameter!="luce"), aes(y=mean, x=interaction(N,var), color=Transformation))+
+#   geom_hline(data=true_params, aes(yintercept=value))+
+#   geom_point(position=pd)+
+#   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), position=pd, width=0.2)+
+#   facet_grid(Parameter~sens, scales = "free")
 
 
 pd <- position_dodge(width=0.4)
@@ -379,18 +381,21 @@ sub_pop_means <- collected_true_pop_means %>%
            Parameter != "phi") %>%
   mutate(var=paste0("Variability: ", var),
          sens=paste0("Sensitivity: ", sens)) %>%
-  merge(data.frame(Computation=c("Original", "Sebis")))
+  merge(data.frame(Transformation=c("Original", "Correct")))
 pd <- position_dodge(width=0.2)
 ggplot(sub_results,
-       aes(y=`50%`, x=as.factor(N), color=Computation))+
+       aes(y=`50%`, x=as.factor(N), color=Transformation))+
   geom_hline(data=true_params, aes(yintercept=value))+
-  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed")+
+  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed", color="gray20")+
+  geom_line(aes(group=Transformation),position=pd)+
   geom_point(position=pd)+
-  geom_line(aes(group=Computation),position=pd)+
   geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
+  scale_color_manual(values=two_colors_transformations)+
   facet_nested(Parameter~var+sens, scales = "free", labeller = label_parsed )+
-  labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
-  theme_bw()
+  labs(y="Parameter values", x="Simulated sample size")+
+  custom_theme
+ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.eps",
+       width = 17.62, height=17.62, units="cm",dpi=600, device = cairo_ps)
 
 
 # 
@@ -405,14 +410,14 @@ ggplot(sub_results,
 #            Parameter != "phi") %>%
 #   mutate(var=paste0("Variability: ", var),
 #          sens=paste0("Sensitivity: ", sens)) %>%
-#   merge(data.frame(Computation=c("Original", "Sebis")))
+#   merge(data.frame(Transformation=c("Original", "Correct")))
 # pd <- position_dodge(width=0.2)
 # ggplot(sub_results,
-#        aes(y=`50%`, x=as.factor(N), color=Computation))+
+#        aes(y=`50%`, x=as.factor(N), color=Transformation))+
 #   geom_hline(data=true_params, aes(yintercept=value))+
 #   geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed")+
 #   geom_point(position=pd)+
-#   geom_line(aes(group=Computation),position=pd)+
+#   geom_line(aes(group=Transformation),position=pd)+
 #   geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
 #   facet_nested(Parameter~sens+var, scales = "free", labeller = label_parsed )+
 #   labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
@@ -552,10 +557,10 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
   collected_samples_restricted <- collected_samples_restricted %>% 
     #filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
     pivot_longer(1:10, names_to="parname") %>%
-    mutate(Computation = ifelse(grepl("sebi", parname), "Sebis", "Original"), 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
            Parameter = sub("_sebi", "", sub("mu.", "", parname)))
   collected_summaries_restricted <- collected_summaries_restricted %>% 
-    mutate(Computation = ifelse(grepl("sebi", parname), "Sebis", "Original"), 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
            Parameter = sub("_sebi", "", sub("mu.", "", parname)))
   
   save(collected_samples_restricted,collected_summaries_restricted, collected_true_pop_means_restricted, 
@@ -564,52 +569,43 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
   load("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")
 }
 
-## 3. Visualize original full parameter recovery analysis           ----
-## Reproduce Nilsson et al. (2011), Figure 2:
-# Note: variability in Nilsson et al is 0; and N = 30; but the following are
-# the values most close to those in Nilsson's paper:
-plot_samples <- filter(collected_samples_restricted, sens==0.4 & var==0.1 & N == 20) %>%
-  filter(Parameter != "luce")
-true_params <- data.frame(Parameter= c("alpha", "gamma","delta","lambda"), 
-                          value    = c(   .88,     .61,    .69,  2.25))
-ggplot(plot_samples, aes(x=value, linetype=Computation, color=Computation))+
-  geom_vline(data=true_params, aes(xintercept=value))+
-  geom_density(aes(group=interaction(Computation, Parameter)))+
-  facet_wrap(.~Parameter, scales = "free")
+## 3. Visualize original restricted parameter recovery analysis     ----
 
-## Extend Nilsson et al. (2011), Figure 2:
-# Note: variability in Nilsson et al is 0; and N = 30; but the following are
-# the values most close to those in Nilsson's paper:
-plot_samples <- filter(collected_samples_restricted, sens==0.4 & var%in%c(0.1, 1) & N == 20) %>%
-  filter(Parameter != "luce") %>%
-  mutate(var=paste0("Variability: ", var))
-true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
-                          value    = c(   .88,     .61,    .69,  2.25))
-p1<- ggplot(subset(plot_samples, Parameter!="lambda"),
-            aes(x=value, color=Computation))+
-  geom_vline(data=subset(true_params, Parameter!="lambda"), aes(xintercept=value))+
-  geom_density(aes(group=interaction(Computation, Parameter, var)), linewidth=1)+
-  facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)+
-  theme(strip.text.y = element_blank(), strip.background.y = element_blank())
-p2 <- ggplot(subset(plot_samples, Parameter=="lambda"),
-             aes(x=value, color=Computation))+
-  geom_vline(data=subset(true_params, Parameter=="lambda"), aes(xintercept=value))+
-  geom_density(aes(group=interaction(Computation, Parameter, var)), linewidth=1)+
-  xlim(c(1, 3.7))+theme(axis.title.y = element_blank())+
-  facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)
-ggarrange(p1, p2, 
-          widths = c(0.7, 0.3), nrow=1, common.legend = TRUE, legend="bottom")
+# ## Extend Nilsson et al. (2011), Figure 2:
+# # Note: variability in Nilsson et al is 0; and N = 30; but the following are
+# # the values most close to those in Nilsson's paper:
+# plot_samples <- filter(collected_samples_restricted, sens==0.4 & var%in%c(0.1, 1) & N == 20) %>%
+#   filter(Parameter != "luce") %>%
+#   mutate(var=paste0("Variability: ", var))
+# true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
+#                           value    = c(   .88,     .61,    .69,  2.25))
+# p1<- ggplot(subset(plot_samples, Parameter!="lambda"),
+#             aes(x=value, color=Transformation))+
+#   geom_vline(data=subset(true_params, Parameter!="lambda"), aes(xintercept=value))+
+#   geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
+#   scale_color_manual(values=two_colors_transformations)+
+#   facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)+
+#   theme(strip.text.y = element_blank(), strip.background.y = element_blank())
+# p2 <- ggplot(subset(plot_samples, Parameter=="lambda"),
+#              aes(x=value, color=Transformation))+
+#   geom_vline(data=subset(true_params, Parameter=="lambda"), aes(xintercept=value))+
+#   scale_color_manual(values=two_colors_transformations)+
+#   geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
+#   xlim(c(1, 3.7))+theme(axis.title.y = element_blank())+
+#   facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)
+# ggarrange(p1, p2, 
+#           widths = c(0.7, 0.3), nrow=1, common.legend = TRUE, legend="bottom")
+# 
 
-
-true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
-                          value    = c(   .88,    .61,    .69,  2.25))
-pd <- position_dodge(width=0.4)
-ggplot(filter(collected_summaries_restricted,Parameter!="luce"), aes(y=mean, x=interaction(N,var), color=Computation))+
-  geom_hline(data=true_params, aes(yintercept=value))+
-  geom_point(position=pd)+
-  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), position=pd, width=0.2)+
-  facet_grid(Parameter~sens, scales = "free")
-
+# true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
+#                           value    = c(   .88,    .61,    .69,  2.25))
+# pd <- position_dodge(width=0.4)
+# ggplot(filter(collected_summaries_restricted,Parameter!="luce"), aes(y=mean, x=interaction(N,var), color=Transformation))+
+#   geom_hline(data=true_params, aes(yintercept=value))+
+#   geom_point(position=pd)+
+#   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), position=pd, width=0.2)+
+#   facet_grid(Parameter~sens, scales = "free")
+# 
 
 pd <- position_dodge(width=0.4)
 # Only take the extreme sampling options for each factor
@@ -624,55 +620,30 @@ sub_pop_means <- collected_true_pop_means_restricted %>%
            Parameter != "phi") %>%
   mutate(var=paste0("Variability: ", var),
          sens=paste0("Sensitivity: ", sens)) %>%
-  merge(data.frame(Computation=c("Original", "Sebis")))
+  merge(data.frame(Transformation=c("Original", "Correct")))
 pd <- position_dodge(width=0.2)
 ggplot(sub_results,
-       aes(y=`50%`, x=as.factor(N), color=Computation))+
-  geom_hline(data=true_params, aes(yintercept=value))+
-  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed")+
+       aes(y=`50%`, x=as.factor(N), color=Transformation))+
+  geom_hline(data=subset(true_params,Parameter!="beta"), aes(yintercept=value))+
+  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed", color="gray20")+
   geom_point(position=pd)+
-  geom_line(aes(group=Computation),position=pd)+
+  geom_line(aes(group=Transformation),position=pd)+
   geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
+  scale_color_manual(values=two_colors_transformations)+
   facet_nested(Parameter~var+sens, scales = "free", labeller = label_parsed )+
-  labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
-  theme_bw()
-
-
-
-
-
-sub_results <- subset(collected_summaries_restricted,Parameter!="luce") %>%
-  filter(sens %in% c(0.04, 0.4) &
-           var %in% c(0.1, 1)) %>%
-  mutate(var=paste0("Variability: ", var),
-         sens=paste0("Sensitivity: ", sens))
-sub_pop_means <- collected_true_pop_means_restricted %>%
-  filter(sens %in% c(0.04, 0.4) &
-           var %in% c(0.1, 1) &
-           Parameter != "phi") %>%
-  mutate(var=paste0("Variability: ", var),
-         sens=paste0("Sensitivity: ", sens)) %>%
-  merge(data.frame(Computation=c("Original", "Sebis")))
-pd <- position_dodge(width=0.2)
-ggplot(sub_results,
-       aes(y=`50%`, x=as.factor(N), color=Computation))+
-  geom_hline(data=true_params, aes(yintercept=value))+
-  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed")+
-  geom_point(position=pd)+
-  geom_line(aes(group=Computation),position=pd)+
-  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
-  facet_nested(Parameter~sens+var, scales = "free", labeller = label_parsed )+
-  labs(y="Parameter values", x="Simulated Sample Size")+
+  labs(y="Parameter values", x="Simulated sample size")+
   custom_theme
+ggsave("figures/Recovery_restricted_posteriorCIs.eps",
+       width = 17.62, height=22.62, units="cm",dpi=600, device = cairo_ps)
 
 
 
 
 
 differences_df <- collected_samples_restricted %>% 
-  mutate(iter=1:n(),.by=c(N, var, sens, parname, Parameter, Computation)) %>% select(-parname) %>% 
-  pivot_wider(names_from="Computation", values_from = value) %>%
-  mutate(difference = Sebis-Original) %>%
+  mutate(iter=1:n(),.by=c(N, var, sens, parname, Parameter, Transformation)) %>% select(-parname) %>% 
+  pivot_wider(names_from="Transformation", values_from = value) %>%
+  mutate(difference = Correct-Original) %>%
   group_by(N, sens, var, Parameter) %>%
   reframe(Med=median(difference), 
           lower = quantile(difference, probs = 0.025),
@@ -686,6 +657,8 @@ ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   facet_nested(Parameter~"Sample~Size"+N, scales = "free_y", labeller=label_parsed)+ 
   labs(x="Variability between individuals", y="Differences in the mean estimates")+
   custom_theme
+ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.eps",
+       width = 12, height=12, units="cm",dpi=600, device = cairo_ps)
 
 # E  Simulation study using wider parameter ranges (alpha=beta)  -----
 # F  Simulation study using wider parameter ranges + correlated pars ----
