@@ -24,6 +24,6 @@ Nilsson, H. & Rieskamp, J. & Wagenmakers, E.-J. (2011). Hierarchical Bayesian pa
 
 *Add Preprint Here*
 
-## Contact
+## Contact details
 
 For comments, remarks, and questions please contact: [sebastian.hellmann\@tum.de](mailto:sebastian.hellmann@tum.de){.email}
