@@ -146,6 +146,8 @@ if (!file.exists("saved_details/Refitted_Data.RData")) {
                                   inits = inits,
                                   n.chains = 4, n.iter = 20000, n.burnin = 1000, n.thin = 10,
                                   n.cluster = 4, jags.seed = 531)
+  res_rieskamp_1 <- list(samples=res_rieskamp_1$BUGSoutput$sims.array,
+                         summaries = res_rieskamp_1$BUGSoutput$summary)
   save(res_rieskamp_1, file="saved_details/Refitted_Data.RData")
 }
 
@@ -153,7 +155,7 @@ load("saved_details/Refitted_Data.RData")
 
 
 ## 3. Compare population means between transformations              ----
-temp_summary <- res_rieskamp_1$BUGSoutput$summary
+temp_summary <- res_rieskamp_1$summaries
 #max(res_rieskamp_1$BUGSoutput$summary[,"Rhat"])
 parname <- rownames(temp_summary)
 temp_summary <- as_tibble(temp_summary) %>% mutate(parname = parname)
@@ -240,7 +242,6 @@ if (REDOALLANALYSIS) {
     for (VAR in 1:3) {
       cur_var <- variabilities[VAR]
       for ( PHI in 1:3) {
-        if (PHI==1 && VAR==1 && N==1) next
         cur_sens <- phis[PHI]
         ## Only if the saved samples do not already exists
         if (!file.exists(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
@@ -269,8 +270,9 @@ if (REDOALLANALYSIS) {
                                        inits = inits,  n.chains = 4,
                                        n.iter = 50000, n.burnin = 1000,
                                        n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
-          
-          save(Data, params, simulation_pars, rec_samples, 
+          rec_summary <- rec_samples$BUGSoutput$summary
+          rec_samples <- rec_samples$BUGSoutput$sims.array
+          save(Data, params, simulation_pars, rec_summary, rec_samples, 
                file=paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
           
         }
@@ -278,6 +280,7 @@ if (REDOALLANALYSIS) {
     }
   }
 }
+
 
 ## When the fitting is done, we load the results and combine the simulations
 if (!file.exists("saved_details/Recovery_full/Collected_recovery_results.RData")) {
@@ -295,7 +298,7 @@ if (!file.exists("saved_details/Recovery_full/Collected_recovery_results.RData")
           load(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
           
           ## Combine the whole posterior samples of population parameters
-          temp <- rec_samples$BUGSoutput$sims.array[,, (cur_n * 6 + 5 + 1:12)]    
+          temp <- rec_samples[,, (cur_n * 6 + 5 + 1:12)]    
           par_names <- dimnames(temp)[[3]]
           dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
           colnames(temp) <- par_names      
@@ -305,7 +308,7 @@ if (!file.exists("saved_details/Recovery_full/Collected_recovery_results.RData")
           collected_samples <- rbind(collected_samples, temp)
           
           ## Combine the posterior summaries of population parameters
-          temp <- rec_samples$BUGSoutput$summary[(cur_n * 6 + 5 + 1:12),]
+          temp <- rec_summary[(cur_n * 6 + 5 + 1:12),]
           temp <- temp %>% as.data.frame() %>%
             select(c(1,2,3,5,7)) %>% 
             rownames_to_column("parname") 
@@ -490,8 +493,9 @@ if (REDOALLANALYSIS) {
                                      n.iter = 50000, n.burnin = 1000,
                                      n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
         
-        
-        save(Data, params, simulation_pars, rec_samples, 
+        rec_summary <- rec_samples$BUGSoutput$summary
+        rec_samples <- rec_samples$BUGSoutput$sims.array
+        save(Data, params, simulation_pars, rec_samples, rec_summary,
              file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
         
       }
@@ -515,7 +519,7 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
           load(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
           
           ## Combine the whole posterior samples of population parameters
-          temp <- rec_samples$BUGSoutput$sims.array[,, (cur_n * 5 + 5 + 1:10)]    
+          temp <- rec_samples[,, (cur_n * 5 + 5 + 1:10)]    
           par_names <- dimnames(temp)[[3]]
           dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
           colnames(temp) <- par_names      
@@ -525,7 +529,7 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
           collected_samples_restricted <- rbind(collected_samples_restricted, temp)
           
           ## Combine the posterior summaries of population parameters
-          temp <- rec_samples$BUGSoutput$summary[(cur_n * 5 + 5 + 1:10),]
+          temp <- rec_summary[(cur_n * 5 + 5 + 1:10),]
           temp <- temp %>% as.data.frame() %>%
             select(c(1,2,3,5,7)) %>% 
             rownames_to_column("parname") 
