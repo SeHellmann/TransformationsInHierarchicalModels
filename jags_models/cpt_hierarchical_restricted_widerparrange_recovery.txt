@@ -18,24 +18,22 @@ model
 	{
 
 		# We start by defining that participant j has a unique parameter-value 
-		# on each of the six parameters: alpha, beta, gamma, delta, lambda, and luce 
+		# on each of the six parameters: alpha, alpha, gamma, delta, lambda, and luce 
 		# (the choice-rule parameter).
 
-		alpha[j] <- phi(alpha.phi[j])
-		beta[j] <- phi(beta.phi[j])
-		gamma[j] <- phi(gamma.phi[j])
-		delta[j] <- phi(delta.phi[j])	
-		luce[j]   <- exp(lluce[j]) 
-            	lambda[j] <- exp(llambda[j])
+		alpha[j] <- 2*phi(alpha.phi[j])
+		gamma[j] <- 2*phi(gamma.phi[j])
+		delta[j] <- 2*phi(delta.phi[j])	
+		luce[j]  <- exp(lluce[j]) 
+    lambda[j] <- exp(llambda[j])
 		
 		# We put group-level normal?s on the individual parameters:
 
-		alpha.phi[j] ~ dnorm(mu.phi.alpha,tau.phi.alpha)T(-3, 3)
-		beta.phi[j] ~ dnorm(mu.phi.beta,tau.phi.beta)T(-3, 3)
-		gamma.phi[j] ~ dnorm(mu.phi.gamma,tau.phi.gamma)T(-3, 3)
-		delta.phi[j] ~ dnorm(mu.phi.delta,tau.phi.delta)T(-3, 3)
-            	lluce[j]   ~ dnorm(lmu.luce, ltau.luce)
-            	llambda[j] ~ dnorm(lmu.lambda, ltau.lambda)
+		alpha.phi[j] ~ dnorm(mu.phi.alpha,tau.phi.alpha)
+		gamma.phi[j] ~ dnorm(mu.phi.gamma,tau.phi.gamma)
+		delta.phi[j] ~ dnorm(mu.phi.delta,tau.phi.delta)
+  	lluce[j]   ~ dnorm(lmu.luce, ltau.luce)
+  	llambda[j] ~ dnorm(lmu.lambda, ltau.lambda)
 
 
 		
@@ -47,9 +45,6 @@ model
 	tau.phi.alpha <- pow(sigma.phi.alpha,-2)
 	sigma.phi.alpha ~ dunif(0,10)
 
-	mu.phi.beta ~ dnorm(0,1)
-	tau.phi.beta <- pow(sigma.phi.beta,-2)
-	sigma.phi.beta ~ dunif(0,10)
 
 	mu.phi.gamma ~ dnorm(0,1)
 	tau.phi.gamma <- pow(sigma.phi.gamma,-2)
@@ -69,19 +64,17 @@ model
 
 	
 	# To obtain the mean of the hyper distribution on the wanted scale:
-	mu.alpha <- phi(mu.phi.alpha) 
-	mu.beta <- phi(mu.phi.beta)
-	mu.gamma <- phi(mu.phi.gamma) 
-	mu.delta <- phi(mu.phi.delta) 
+	mu.alpha <- 2*phi(mu.phi.alpha) 
+	mu.gamma <- 2*phi(mu.phi.gamma) 
+	mu.delta <- 2*phi(mu.phi.delta) 
 	mu.lambda <- exp(lmu.lambda)
 	mu.luce   <- exp(lmu.luce)
 	
-	mu.alpha_sebi <-  phi(mu.phi.alpha / sqrt(1+ pow(sigma.phi.alpha, 2))) 
-	mu.beta_sebi <-  phi(mu.phi.beta / sqrt(1+ pow(sigma.phi.beta, 2))) 
-	mu.gamma_sebi <- phi(mu.phi.gamma / sqrt(1+ pow(sigma.phi.gamma, 2)))
-  mu.delta_sebi <- phi(mu.phi.delta / sqrt(1+ pow(sigma.phi.delta, 2))) 
-  mu.luce_sebi   <- exp(lmu.luce + pow(lsigma.luce, 2)/2)
-  mu.lambda_sebi   <- exp(lmu.lambda + pow(lsigma.lambda, 2)/2)
+	mu.alpha_sebi <- 2*phi(mu.phi.alpha / sqrt(1+ pow(sigma.phi.alpha, 2))) 
+	mu.gamma_sebi <- 2*phi(mu.phi.gamma / sqrt(1+ pow(sigma.phi.gamma, 2)))
+  mu.delta_sebi <- 2*phi(mu.phi.delta / sqrt(1+ pow(sigma.phi.delta, 2))) 
+  mu.luce_sebi  <- exp(lmu.luce + pow(lsigma.luce, 2)/2)
+  mu.lambda_sebi<- exp(lmu.lambda + pow(lsigma.lambda, 2)/2)
   
 
 
@@ -92,7 +85,7 @@ model
 			for (i in 1:60)# Item-Loop, mixed gambles,gamble A
    		{
      			v.x.a[i,j] <- pow(mixed_prospects.a[i,3],alpha[j])       
-      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.a[i,1]),beta[j])       
+      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.a[i,1]),alpha[j])       
 
      			w.x.a[i,j] <- pow(mixed_prospects.a[i,4],gamma[j]) / pow(z.a[i,j],(1/gamma[j])) 
       			w.y.a[i,j] <- pow(mixed_prospects.a[i,2],delta[j]) / pow(z.a[i,j],(1/delta[j])) 
@@ -105,7 +98,7 @@ model
    		for (i in 1:60)# Item-Loop, mixed gambles,gamble B
    		{
       			v.x.b[i,j] <- pow(mixed_prospects.b[i,3],alpha[j])       
-      			v.y.b[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.b[i,1]),beta[j])       
+      			v.y.b[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.b[i,1]),alpha[j])       
 
       			w.x.b[i,j] <- pow(mixed_prospects.b[i,4],gamma[j]) / pow(z.b[i,j],(1/gamma[j])) 
       			w.y.b[i,j] <- pow(mixed_prospects.b[i,2],delta[j]) / pow(z.b[i,j],(1/delta[j])) 

@@ -2,18 +2,7 @@
 # Data from Rieskamp (30 paritipants, 60 gamble-pairs 
 # with positive outcomes, 60 gamble-pairs with negative
 # outcomes, and 60 gamble-pairs with mixed outcomes)
-data
-{
-  ### Generate II as the identity matrix and zeros as a vector of zeros
-  for (l in 1:5) {
-    zeros[l] <- 0
-   for (ll in 1:5) {
-    II[l,ll] <- ifelse(l==ll, 1,0)
-   }
-  }
-  
 
-}
 
 model
 {
@@ -24,61 +13,84 @@ model
 # Furthermore, it assumes that the individual values on parameter-dimension X 
 # are sampled from the hyperdistribution for X. This has to be defined in the model code.
 
-  
-  #### Population distribution priors
-  for (k in 1:5) {
-    mu.trans.pars[k] ~ dnorm(0,1)
-  }
-  InvSig.trans.pars  ~ dwish(II[1:5,1:5],6)
-  
-  ####
-  Sig.trans.pars[1:5,1:5] <- inverse(InvSig.trans.pars[1:5,1:5])  
-  
-  
-  # Define the correct and incorrect actual parameter means
-  mu.alpha <- 2*phi(mu.trans.pars[1]) 
-  mu.gamma <- 2*phi(mu.trans.pars[2]) 
-  mu.delta <- 2*phi(mu.trans.pars[3]) 
-  mu.luce  <-   exp(mu.trans.pars[4])
-  mu.lambda<-   exp(mu.trans.pars[5])
-  
-  mu.alpha_sebi <- 2*phi(mu.trans.pars[1] / sqrt(1+ pow(Sig.trans.pars[1,1], 2))) 
-  mu.gamma_sebi <- 2*phi(mu.trans.pars[2] / sqrt(1+ pow(Sig.trans.pars[2,2], 2)))
-  mu.delta_sebi <- 2*phi(mu.trans.pars[3] / sqrt(1+ pow(Sig.trans.pars[3,3], 2))) 
-  mu.luce_sebi  <-   exp(mu.trans.pars[4] + pow(Sig.trans.pars[4,4], 2)/2)
-  mu.lambda_sebi<-   exp(mu.trans.pars[5] + pow(Sig.trans.pars[5,5], 2)/2)
-  
-  
-  
-  
-  
-	## Participant distributions
+	
 	for (j in 1:30)
 	{
-    ## Sample random effects of participants from multi-variate normal
-	  randeff[j,1:5]  ~ dmnorm(zeros, InvSig.trans.pars)
-	  ## Compute transformed participant-parameters
-	  sbj.trans.pars[j, 1:5] <- mu.trans.pars + randeff[j, 1:5]
-	  
-	  # Transform individual parameters to parameter-scale
-	  alpha[j] <- 2*phi(sbj.trans.pars[j, 1])
-		gamma[j] <- 2*phi(sbj.trans.pars[j, 2])
-		delta[j] <- 2*phi(sbj.trans.pars[j, 3])
-		luce[j]  <-   exp(sbj.trans.pars[j, 4]) 
-    lambda[j] <-  exp(sbj.trans.pars[j, 5])
-    
-    ## Choice-loops:
-    
-    
+
+		# We start by defining that participant j has a unique parameter-value 
+		# on each of the six parameters: alpha, alpha, gamma, delta, lambda, and luce 
+		# (the choice-rule parameter).
+
+		alpha[j] <- 2*phi(alpha.phi[j])
+		gamma[j] <- 2*phi(gamma.phi[j])
+		delta[j] <- 2*phi(delta.phi[j])	
+		luce[j]   <- exp(lluce[j]) 
+    lambda[j] <- exp(llambda[j])
+		
+		# We put group-level normal?s on the individual parameters:
+
+		alpha.phi[j] ~ dnorm(mu.phi.alpha,tau.phi.alpha)T(-3, 3)
+		gamma.phi[j] ~ dnorm(mu.phi.gamma,tau.phi.gamma)T(-3, 3)
+		delta.phi[j] ~ dnorm(mu.phi.delta,tau.phi.delta)T(-3, 3)
+  	lluce[j]   ~ dnorm(lmu.luce, ltau.luce)
+  	llambda[j] ~ dnorm(lmu.lambda, ltau.lambda)
+
+
+		
+	}
+
+
+	# Here priors for the hyperdistributions are defined:
+	mu.phi.alpha ~ dnorm(0,1)
+	tau.phi.alpha <- pow(sigma.phi.alpha,-2)
+	sigma.phi.alpha ~ dunif(0,10)
+
+	mu.phi.gamma ~ dnorm(0,1)
+	tau.phi.gamma <- pow(sigma.phi.gamma,-2)
+	sigma.phi.gamma ~ dunif(0,10)
+
+	mu.phi.delta ~ dnorm(0,1)
+	tau.phi.delta <- pow(sigma.phi.delta,-2)
+	sigma.phi.delta ~ dunif(0,10)
+	
+	lmu.lambda    ~ dunif(-2.3, 1.61) 
+      	ltau.lambda  <- pow(lsigma.lambda,-2)
+      	lsigma.lambda ~ dunif(0,1.13)    
+
+      	lmu.luce    ~ dunif(-2.3, 1.61)   
+      	ltau.luce  <- pow(lsigma.luce,-2)
+      	lsigma.luce ~ dunif(0,1.13)       
+
+	
+	# To obtain the mean of the hyper distribution on the wanted scale:
+	mu.alpha <- 2*phi(mu.phi.alpha) 
+	mu.gamma <- 2*phi(mu.phi.gamma) 
+	mu.delta <- 2*phi(mu.phi.delta) 
+	mu.lambda <- exp(lmu.lambda)
+	mu.luce   <- exp(lmu.luce)
+	
+	mu.alpha_sebi <- 2*phi(mu.phi.alpha / sqrt(1+ pow(sigma.phi.alpha, 2))) 
+	mu.gamma_sebi <- 2*phi(mu.phi.gamma / sqrt(1+ pow(sigma.phi.gamma, 2)))
+  mu.delta_sebi <- 2*phi(mu.phi.delta / sqrt(1+ pow(sigma.phi.delta, 2))) 
+  mu.luce_sebi   <- exp(lmu.luce + pow(lsigma.luce, 2)/2)
+  mu.lambda_sebi   <- exp(lmu.lambda + pow(lsigma.lambda, 2)/2)
+  
+
+
+# It is now time to define how the model should be fit to data. 
+
+	for (j in 1:30)# Subject-loop
+	{
+	
    		for (i in 1:60)# Item-Loop, positive gambles,gamble A
    		{
 
-    # j:s subjective value of outcome 1 in gamble A of gamble-pair i, v.x.a[i,j], equals:
+# j:s subjective value of outcome 1 in gamble A of gamble-pair i, v.x.a[i,j], equals:
 
      			v.x.a[i,j] <- pow(prospects.a[i,1],alpha[j])
 
-    # where prospects.a[i,1] = outcome 1 and alpha[j] = j:s value on the alpha parameter
-    # j:s subjective value of outcome 2 in gamble A
+# where prospects.a[i,1] = outcome 1 and alpha[j] = j:s value on the alpha parameter
+# j:s subjective value of outcome 2 in gamble A
        
       			v.y.a[i,j] <- pow(prospects.a[i,3],alpha[j])       
 
@@ -185,7 +197,7 @@ model
    		for (i in 121:180)# Item-Loop, mixed gambles,choice-rule
    		{
       
-			binval[i,j] <- (1)/(1+exp((-1*luce[j])*(Vf.b[i,j]-Vf.a[i,j])))
+			binval[i,j] <- (1.00000000001)/(1.00000000001+exp((-1*luce[j])*(Vf.b[i,j]-Vf.a[i,j])))
 			rawdata[i,j] ~ dbern(binval[i,j])
    		}
 

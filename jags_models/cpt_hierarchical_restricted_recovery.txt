@@ -84,12 +84,12 @@ model
 	{
 			for (i in 1:60)# Item-Loop, mixed gambles,gamble A
    		{
-     			v.x.a[i,j] <- pow(prospects.a[i,3],alpha[j])       
-      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * prospects.a[i,1]),alpha[j])       
+     			v.x.a[i,j] <- pow(mixed_prospects.a[i,3],alpha[j])       
+      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.a[i,1]),alpha[j])       
 
-     			w.x.a[i,j] <- pow(prospects.a[i,4],gamma[j]) / pow(z.a[i,j],(1/gamma[j])) 
-      			w.y.a[i,j] <- pow(prospects.a[i,2],delta[j]) / pow(z.a[i,j],(1/delta[j])) 
-      			z.a[i,j]   <- pow(prospects.a[i,4],gamma[j]) + pow(prospects.a[i,2],delta[j]) 
+     			w.x.a[i,j] <- pow(mixed_prospects.a[i,4],gamma[j]) / pow(z.a[i,j],(1/gamma[j])) 
+      			w.y.a[i,j] <- pow(mixed_prospects.a[i,2],delta[j]) / pow(z.a[i,j],(1/delta[j])) 
+      			z.a[i,j]   <- pow(mixed_prospects.a[i,4],gamma[j]) + pow(mixed_prospects.a[i,2],delta[j]) 
 
       			Vf.a[i,j]  <- w.x.a[i,j] * v.x.a[i,j] + w.y.a[i,j] * v.y.a[i,j]
       
@@ -97,12 +97,12 @@ model
 
    		for (i in 1:60)# Item-Loop, mixed gambles,gamble B
    		{
-      			v.x.b[i,j] <- pow(prospects.b[i,3],alpha[j])       
-      			v.y.b[i,j] <- (-1 * lambda[j]) * pow((-1 * prospects.b[i,1]),alpha[j])       
+      			v.x.b[i,j] <- pow(mixed_prospects.b[i,3],alpha[j])       
+      			v.y.b[i,j] <- (-1 * lambda[j]) * pow((-1 * mixed_prospects.b[i,1]),alpha[j])       
 
-      			w.x.b[i,j] <- pow(prospects.b[i,4],gamma[j]) / pow(z.b[i,j],(1/gamma[j])) 
-      			w.y.b[i,j] <- pow(prospects.b[i,2],delta[j]) / pow(z.b[i,j],(1/delta[j])) 
-      			z.b[i,j]   <- pow(prospects.b[i,4],gamma[j]) + pow(prospects.b[i,2],delta[j]) 
+      			w.x.b[i,j] <- pow(mixed_prospects.b[i,4],gamma[j]) / pow(z.b[i,j],(1/gamma[j])) 
+      			w.y.b[i,j] <- pow(mixed_prospects.b[i,2],delta[j]) / pow(z.b[i,j],(1/delta[j])) 
+      			z.b[i,j]   <- pow(mixed_prospects.b[i,4],gamma[j]) + pow(mixed_prospects.b[i,2],delta[j]) 
 
       			Vf.b[i,j]  <- w.x.b[i,j] * v.x.b[i,j] + w.y.b[i,j] * v.y.b[i,j]
       
