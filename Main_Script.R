@@ -195,7 +195,7 @@ group_pars_summary %>%
   filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
          Parameter = sub("_sebi", "", sub("mu.", "", parname)),
-         Parameter = ifelse(Parameter=="luce", "varphi", Parameter)) %>%
+         Parameter = ifelse(Parameter=="luce", "phi", Parameter)) %>%
   ggplot(aes(x=Parameter, color=Transformation))+
   scale_color_manual(values=two_colors_transformations)+
   geom_point(aes(y=`50%`), size=3, position=pd)+
@@ -205,6 +205,8 @@ group_pars_summary %>%
   custom_theme
 ggsave("figures/Rieskamp_Original.eps",
        width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Rieskamp_Original.png",
+       width = 17.62, height=9/0.7, units="cm",dpi=900)
 
 #___________________________________________________________________----
 # C  Re-do (Extended) original simulation study (unconstrained)     ----
@@ -374,7 +376,8 @@ ggplot(plot_samples, aes(x=value, linetype=as.factor(var), color=Transformation)
   theme(plot.margin = margin(0, 0.3, 0, 0, "cm"))
 ggsave("figures/Recovery_full_posteriordists.eps",
        width = 23, height=9/0.6, units="cm",dpi=600, device = cairo_ps)
-
+ggsave("figures/Recovery_full_posteriordists.png",
+       width = 23, height=9/0.6, units="cm",dpi=900)
 
 # true_params <- data.frame(Parameter= c("alpha", "beta", "gamma","delta","lambda"), 
 #                           value    = c(   .88,    .88,       .61,    .69,  2.25))
@@ -414,6 +417,9 @@ ggplot(sub_results,
   custom_theme
 ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.eps",
        width = 17.62, height=17.62, units="cm",dpi=600, device = cairo_ps)
+
+ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.png",
+       width = 17.62, height=17.62, units="cm",dpi=900)
 
 
 # 
@@ -651,6 +657,8 @@ ggplot(sub_results,
   custom_theme
 ggsave("figures/Recovery_restricted_posteriorCIs.eps",
        width = 17.62, height=22.62, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_posteriorCIs.png",
+       width = 17.62, height=22.62, units="cm",dpi=900)
 
 
 
@@ -665,7 +673,7 @@ differences_df <- collected_samples_restricted %>%
           lower = quantile(difference, probs = 0.025),
           upper = quantile(difference, probs = 0.975)) 
 plot_differences_df <- differences_df %>% filter(sens==0.4) %>%
-  mutate(Parameter = ifelse(Parameter=="luce", "varphi", Parameter))
+  mutate(Parameter = ifelse(Parameter=="luce", "phi", Parameter))
 ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   geom_point()+geom_line(aes(group=1))+
   geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
@@ -675,6 +683,8 @@ ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   custom_theme
 ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.eps",
        width = 12, height=12, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.png",
+       width = 12, height=12, units="cm",dpi=900)
 
 #___________________________________________________________________----
 #______         Extending parameter ranges               ___________----
@@ -728,7 +738,7 @@ group_pars_summary %>%
   filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
          Parameter = sub("_sebi", "", sub("mu.", "", parname)),
-         Parameter = ifelse(Parameter=="luce", "varphi", Parameter)) %>%
+         Parameter = ifelse(Parameter=="luce", "phi", Parameter)) %>%
   ggplot(aes(x=Parameter, color=Transformation))+
   scale_color_manual(values=two_colors_transformations)+
   geom_point(aes(y=`50%`), size=3, position=pd)+
@@ -738,6 +748,8 @@ group_pars_summary %>%
   custom_theme
 ggsave("figures/Rieskamp_Widerrange.eps",
        width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Rieskamp_Widerrange.png",
+       width = 17.62, height=9/0.7, units="cm",dpi=900)
 
 
 #___________________________________________________________________----
@@ -949,6 +961,8 @@ ggplot(sub_results,
   custom_theme
 ggsave("figures/Recovery_restricted_widerange_posteriorCIs.eps",
        width = 17.62, height=22.62, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_widerange_posteriorCIs.png",
+       width = 17.62, height=22.62, units="cm",dpi=900)
 
 
 
@@ -961,7 +975,7 @@ differences_df <- collected_samples_restricted %>%
           lower = quantile(difference, probs = 0.025),
           upper = quantile(difference, probs = 0.975)) 
 plot_differences_df <- differences_df %>% filter(sens==0.4) %>%
-  mutate(Parameter = ifelse(Parameter=="luce", "varphi", Parameter))
+  mutate(Parameter = ifelse(Parameter=="luce", "phi", Parameter))
 ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   geom_point()+geom_line(aes(group=1))+
   geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
@@ -971,6 +985,9 @@ ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   custom_theme
 ggsave("figures/Recovery_restricted_widerange_trafodifferences_SUPPLEMENT.eps",
        width = 12, height=12, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_widerange_trafodifferences_SUPPLEMENT.png",
+       width = 12, height=12, units="cm",dpi=900)
+
 #___________________________________________________________________----
 #______     Allowing correlated random effects           ___________----
 #___________________________________________________________________----
@@ -1017,13 +1034,13 @@ group_pars_summary <- temp_summary %>%
   filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct mean", "Original mean"), 
          Parameter = sub("_sebi", "", sub("mu.", "", parname)),
-         Parameter = ifelse(Parameter=="luce", "varphi", Parameter)) 
+         Parameter = ifelse(Parameter=="luce", "phi", Parameter)) 
   
 
-parlabels <- c("alpha", "gamma", "delta", "varphi", "lambda")
+parlabels <- c("alpha", "gamma", "delta", "phi", "lambda")
 variances_summary <- temp_summary %>% 
   filter(parname %in% paste0("Sig.trans.pars[", 1:5, ",", 1:5, "]")) %>% 
-  mutate(Parameter = parameternames[as.numeric(str_split_i(parname, "\\[|,|\\]", 2))],
+  mutate(Parameter = parlabels[as.numeric(str_split_i(parname, "\\[|,|\\]", 2))],
          Transformation = "Variability")
 
 pd <- position_dodge(width=0.2)
@@ -1038,14 +1055,17 @@ rbind(group_pars_summary, variances_summary) %>%
   custom_theme
 ggsave("figures/Rieskamp_Correlated.eps",
        width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Rieskamp_Correlated.png",
+       width = 17.62, height=9/0.7, units="cm",dpi=900)
 
 ## 3. Check correlation between parameters                          -----
-parlabels <- c("alpha", "gamma", "delta", "varphi", "lambda")
+parlabels <- c("alpha", "gamma", "delta", "phi", "lambda")
+ordered_labels <- c("alpha", "gamma", "delta", "lambda", "phi")
 Covariances <- temp_summary %>% filter(grepl("Sig.", parname)) %>%
   mutate(par1 = as.numeric(str_split_i(parname, "\\[|,|\\]", 2)),
          par2 = as.numeric(str_split_i(parname, "\\[|,|\\]", 3)),
-         par1 = factor(parlabels[par1],levels=    parlabels, ordered = TRUE),
-         par2=  factor(parlabels[par2],levels=rev(parlabels), ordered = TRUE)) %>%
+         par1 = factor(parlabels[par1],levels=    ordered_labels, ordered = TRUE),
+         par2=  factor(parlabels[par2],levels=rev(ordered_labels), ordered = TRUE)) %>%
   rename(cov=`50%`)
 #pivot_wider(id_cols = par1, names_from = par2, values_from = `50%`) %>%
 Correlations <- Covariances %>%
@@ -1068,15 +1088,19 @@ new_parse_format <- function(text) {
 ggplot(Correlations, aes(x=par1, y=par2, fill=cor))+
   geom_tile()+
   scale_fill_distiller(type="div", palette="RdBu", direction = 1,
-                       limits=c(-1, 1))+
+                       limits=c(-1, 1.0001))+
   scale_x_discrete(labels=scales::label_parse(), expand = c(0,0),
                    guide=guide_axis(position = "top"))+
   scale_y_discrete(labels=scales::label_parse(), expand = c(0,0))+
   theme_bw()+custom_theme+
   labs(y="",x="", fill="Correlation")+
-  theme(legend.position = "right")
+  theme(legend.position = "right")+
+  coord_fixed(ratio = 1)
 ggsave("figures/Rieskamp_Correlated_Correlations.eps",
        width = 13, height=13, units="cm",dpi=600, device = cairo_ps)
+
+ggsave("figures/Rieskamp_Correlated_Correlations.png",
+       width = 13, height=13, units="cm",dpi=900)
 
 
 
