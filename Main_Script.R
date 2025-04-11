@@ -1,49 +1,56 @@
 ############################################################-
 #####          Main script for the analyses in              -
 #####      ** HIer awesome paper title einfügen **          -
-#__________________________________________________________----
+
+# Use Alt+o in RStudio to collapse all folds!
 
 # Sebastian Hellmann, April 2025
 rm(list = ls())
 REDOALLANALYSIS <- FALSE
 
-## Structure:
+#________       Structure of the script         ____________----
 # Preamble and imports    
 #___________________________________________________________________
 # A  Read and prepare experimental data define JAGS inputs          
 #___________________________________________________________________
 #______               Re-doing analysis                  ___________
 #___________________________________________________________________
-# B  Refitting Rieskamp-data with original model                    
+# B  Refitting Rieskamp-data with original model (alpha=beta)       
 ## 1. Fit the hierarchical CPT-model                                
 ## 2. Compare population means between transformations              
 #___________________________________________________________________
-# C  Re-do (Extended) original simulation study (unconstrained)     
-## 1. Actual parameter recovery analysis                            
-## 2. Visualize original full parameter recovery analysis           
-#___________________________________________________________________
-# D  Re-do (Extended) original simulation study (alpha=beta)        
+# C  Re-do (Extended) original simulation study (alpha=beta)        
 ## 1. Actual parameter recovery analysis                            
 ## 2. Visualize original restricted parameter recovery analysis     
 #___________________________________________________________________
+#_______                 For Supplement                     ________
+#___________________________________________________________________
+# D  Refitting Rieskamp-data with original model                    
+## 1. Fit the hierarchical CPT-model                                
+## 2. Compare population means between transformations              
+#___________________________________________________________________
+# E  Re-do (Extended) original simulation study (unconstrained)     
+## 1. Actual parameter recovery analysis                            
+## 2. Visualize original full parameter recovery analysis           
+#___________________________________________________________________
 #______         Extending parameter ranges               ___________
 #___________________________________________________________________
-# E  Refitting Rieskamp-data with model with wider parameter ranges 
+# F  Refitting Rieskamp-data with model with wider parameter ranges 
 ## 1. Fit the hierarchical CPT-model with wider par-ranges          
 ## 2. Compare population means between transformations              
 #___________________________________________________________________
-# F  Simulation study using wider parameter ranges (alpha=beta)     
+# G  Simulation study using wider parameter ranges (alpha=beta)     
 ## 1. Actual Parameter recovery analysis                            
 ## 2. Visualize original restricted parameter recovery analysis     
 #___________________________________________________________________
 #______     Allowing correlated random effects           ___________
 #___________________________________________________________________
-# G  Refitting Rieskamp-data with model with correlated random effs 
+# H  Refitting Rieskamp-data with model with correlated random effs 
 ## 1. Fit the hierarchical CPT-model                                
 ## 2. Compare population means between transformations              
 ## 3. Check correlation between parameters                          
 #___________________________________________________________________
-# F  Simulation study using wider parameter ranges + correlated pars   --> STILL TO BE DONE
+# I  Simulation study using wider parameter ranges + correlated pars  --> STILL TO BE DONE
 
 
 # Preamble and imports                                     ----
@@ -56,9 +63,9 @@ print(getwd())
 
 {
   # Tell Rstudio where to find JAGS
-  Sys.setenv(JAGS_HOME = "C:/Users/go73jec/AppData/Local/Programs/JAGS/JAGS-4.3.1")
+  #Sys.setenv(JAGS_HOME = "C:/Users/go73jec/AppData/Local/Programs/JAGS/JAGS-4.3.1")
   library(tidyverse)
-  library(R2jags)
+  #library(R2jags)
   library(ggpubr)
   library(viridis)
   library(ggh4x)
@@ -85,6 +92,7 @@ print(getwd())
 }
 ## Import simulation function and define JAGS model file names
 source("simulate_CPT.R")
+original_restricted_model = "jags_models/cpt_hierarchical_restricted.txt"
 original_full_model = "jags_models/cpt_hierarchical_model.txt"
 widerange_restricted_model = "jags_models/cpt_hierarchical_restricted_widerange.txt"
 correlated_model <- "jags_models/cpt_hierarchical_ correlated_pars_model.txt"
@@ -144,7 +152,311 @@ simu_data  = list("mixed_prospects.a", "mixed_prospects.b", "Data", "cur_n")
 #___________________________________________________________________----
 #______               Re-doing analysis                  ___________----
 #___________________________________________________________________----
-# B  Refitting Rieskamp-data with original model                    ----
+# B  Refitting Rieskamp-data with original model (alpha=beta)       ----
+
+## 1. Fit the hierarchical CPT-model                                ----
+
+# Define initial values for parameters 
+inits = function() {
+  list(mu.phi.alpha = 0, sigma.phi.alpha = 1, 
+       mu.phi.gamma = 0, sigma.phi.gamma = 1, 
+       mu.phi.delta = 0, sigma.phi.delta = 1,       
+       lmu.lambda = 0, lsigma.lambda = 0.5, 
+       lmu.luce = 0, sigma.phi.luce = 0.5)
+}
+
+
+# Define the variables of interest. JAGS will return these to R when 
+# the analysis is finished (and JAGS is closed).	
+parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
+               "gamma", "mu.phi.gamma", "mu.gamma", "sigma.phi.gamma", "mu.gamma_sebi",
+               "delta", "mu.phi.delta", "mu.delta", "sigma.phi.delta", "mu.delta_sebi",
+               "lambda", "lmu.lambda", "mu.lambda", "lsigma.lambda", "mu.luce_sebi",
+               "luce", "lmu.luce", "mu.luce", "lsigma.luce", "mu.lambda_sebi")
+
+## To prevent re-fitting when save results are present
+if (!file.exists("saved_details/Refitted_Data.RData")) {
+  res_rieskamp_restricted =  jags.parallel(data, parameters,
+     model.file = original_restricted_model,
+     inits = inits,
+     n.chains = 5, n.iter = 70000,
+     n.burnin = 6000, n.thin = 20,
+     n.cluster = 5, jags.seed = 10042025)
+  res_rieskamp_restricted <- list(samples=res_rieskamp_restricted$BUGSoutput$sims.array,
+                                  summaries = res_rieskamp_restricted$BUGSoutput$summary)
+  save(res_rieskamp_restricted, file="saved_details/Refitted_Data_restricted.RData")
+}
+
+load("saved_details/Refitted_Data_restricted.RData")
+
+## 2. Compare population means between transformations              ----
+temp_summary <- res_rieskamp_restricted$summaries
+#max(res_rieskamp_restricted$BUGSoutput$summary[,"Rhat"])
+parname <- rownames(temp_summary)
+temp_summary <- as_tibble(temp_summary) %>% mutate(parname = parname)
+group_pars_summary <- temp_summary %>% 
+  filter(grepl(parname, pattern = "mu"))
+
+pd <- position_dodge(width=0.2)
+group_pars_summary %>% 
+  filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
+  mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
+         Parameter = sub("_sebi", "", sub("mu.", "", parname)),
+         Parameter = ifelse(Parameter=="luce", "phi", Parameter)) %>%
+  ggplot(aes(x=Parameter, color=Transformation))+
+  scale_color_manual(values=two_colors_transformations)+
+  geom_point(aes(y=`50%`), size=3, position=pd)+
+  scale_x_discrete(labels = scales::parse_format())+
+  ylab("Posterior Median (95%CI)")+
+  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
+  custom_theme
+ggsave("figures/Rieskamp_restricted.eps",
+       width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Rieskamp_restricted.png",
+       width = 17.62, height=9/0.7, units="cm",dpi=900)
+
+#___________________________________________________________________----
+# C  Re-do (Extended) original simulation study (alpha=beta)        ----
+## 1. Actual parameter recovery analysis                            ----
+
+# Define initial values for parameter
+inits = function() {
+  list(mu.phi.alpha = 0.7, sigma.phi.alpha = 1,
+       mu.phi.gamma = 0.7, sigma.phi.gamma = 1, 
+       mu.phi.delta = 0.7, sigma.phi.delta = 1,
+       lmu.lambda = 0, lsigma.lambda = 0.5, 
+       lmu.luce = 0, sigma.phi.luce = 0.5)
+}
+
+
+# Define the variables of interest. JAGS will return these to R 
+# when the analysis is finished (and JAGS is closed).	
+parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
+               "gamma", "mu.phi.gamma", "mu.gamma", "sigma.phi.gamma", "mu.gamma_sebi",
+               "delta", "mu.phi.delta", "mu.delta", "sigma.phi.delta", "mu.delta_sebi",
+               "lambda", "lmu.lambda", "mu.lambda", "lsigma.lambda", "mu.luce_sebi",
+               "luce", "lmu.luce", "mu.luce", "lsigma.luce", "mu.lambda_sebi"
+)
+
+
+
+## Set mean parameters for simulation
+alpha <- .88
+gamma <- .61 
+delta <- .69
+lambda <- 2.25
+
+## Define the different settings that should be compared
+phis <- c(.04, .14, .40) # choice sensitivity
+Nsbjs <- c(20, 50, 90) # number of subjects
+variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
+
+## Actually do the simulation, save simulation, and model fitting
+## Only do this, when all analysis should be done again (takes long!)
+if (REDOALLANALYSIS) {
+  dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
+  N <- VAR <- PHI <- 1
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    Data <- matrix(NA, nrow=60, ncol=cur_n)
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      for ( PHI in 1:3) {
+        cur_sens <- phis[PHI]
+        seeeed <- 2201 + 100*N + 10*VAR + PHI 
+        set.seed(seeeed)
+        ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
+        Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
+        Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
+        Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
+        # Draw from Gamma distribution with mean lambda and variance cur_var
+        Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
+        
+        for (k in 1:cur_n) {
+          Data[,k] <- simulate_CPT_individ(Alphas[k], Alphas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
+        }
+        params <- data.frame(alpha=Alphas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
+        simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
+        save(Data, params, simulation_pars,
+             file=paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        
+        rec_samples =  jags.parallel(simu_data, parameters,
+                                     model.file = original_restricted_model_recovery,
+                                     inits = inits,  n.chains = 4,
+                                     n.iter = 50000, n.burnin = 1000,
+                                     n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
+        
+        rec_summary <- rec_samples$BUGSoutput$summary
+        rec_samples <- rec_samples$BUGSoutput$sims.array
+        save(Data, params, simulation_pars, rec_samples, rec_summary,
+             file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        
+      }
+    }
+  }
+}
+
+## When the fitting is done, we load the results and combine the simulations
+if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")) {
+  collected_samples_restricted <- data.frame()
+  collected_summaries_restricted <- data.frame()
+  collected_true_pop_means_restricted <- data.frame()
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      for ( PHI in 1:3) {
+        cur_sens <- phis[PHI]
+        if (file.exists(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
+          ## Load fit results
+          load(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+          
+          ## Combine the whole posterior samples of population parameters
+          temp <- rec_samples[,, (cur_n * 5 + 5 + 1:10)]    
+          par_names <- dimnames(temp)[[3]]
+          dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
+          colnames(temp) <- par_names      
+          temp <- as.data.frame(temp) 
+          head(temp)
+          temp <- cbind(temp, as.data.frame(simulation_pars))
+          collected_samples_restricted <- rbind(collected_samples_restricted, temp)
+          
+          ## Combine the posterior summaries of population parameters
+          temp <- rec_summary[(cur_n * 5 + 5 + 1:10),]
+          temp <- temp %>% as.data.frame() %>%
+            select(c(1,2,3,5,7)) %>% 
+            rownames_to_column("parname") 
+          temp <- cbind(temp, as.data.frame(simulation_pars))
+          collected_summaries_restricted <- rbind(collected_summaries_restricted, temp)
+          
+          ## Combine actual sampled population means
+          load(paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+          temp <- colMeans(params) %>% data.frame()  %>% 
+            rownames_to_column("Parameter")
+          colnames(temp)[2] <- "value"
+          temp <- cbind(temp, as.data.frame(simulation_pars))
+          collected_true_pop_means_restricted <- rbind(collected_true_pop_means_restricted, temp)
+          
+        }
+      }
+    }
+  }
+  ## Clean and Format Parameter Labels
+  collected_samples_restricted <- collected_samples_restricted %>% 
+    #filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
+    pivot_longer(1:10, names_to="parname") %>%
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
+           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
+  collected_summaries_restricted <- collected_summaries_restricted %>% 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
+           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
+  
+  save(collected_samples_restricted,collected_summaries_restricted, collected_true_pop_means_restricted, 
+       file="saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")
+} else {
+  load("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")
+}
+
+## 2. Visualize original restricted parameter recovery analysis     ----
+pd <- position_dodge(width=0.4)
+# Only take the extreme sampling options for each factor
+true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"),
+                          value    = c(   .88,     .61,    .69,  2.25))
+sub_results <- subset(collected_summaries_restricted,Parameter!="luce") %>%
+  filter(sens %in% c(0.04, 0.4) &
+           var %in% c(0.1, 1)) %>%
+  mutate(var=paste0("Variability: ", var),
+         sens=paste0("Sensitivity: ", sens))
+sub_pop_means <- collected_true_pop_means_restricted %>%
+  filter(sens %in% c(0.04, 0.4) &
+           var %in% c(0.1, 1) &
+           Parameter != "phi") %>%
+  mutate(var=paste0("Variability: ", var),
+         sens=paste0("Sensitivity: ", sens)) %>%
+  merge(data.frame(Transformation=c("Original", "Correct")))
+pd <- position_dodge(width=0.2)
+ggplot(sub_results,
+       aes(y=`50%`, x=as.factor(N), color=Transformation))+
+  geom_hline(data=subset(true_params,Parameter!="beta"), aes(yintercept=value))+
+  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed", color="gray20")+
+  geom_point(position=pd)+
+  geom_line(aes(group=Transformation),position=pd)+
+  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
+  scale_color_manual(values=two_colors_transformations)+
+  facet_nested(Parameter~var+sens, scales = "free", labeller = label_parsed )+
+  labs(y="Parameter values", x="Simulated sample size")+
+  custom_theme
+ggsave("figures/Recovery_restricted_posteriorCIs.eps",
+       width = 17.62, height=22.62, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_posteriorCIs.png",
+       width = 17.62, height=22.62, units="cm",dpi=900)
+
+
+## Extend Nilsson et al. (2011), Figure 2:
+# Note: variability in Nilsson et al is 0; and N = 30; but the following are
+# the values most close to those in Nilsson's paper:
+plot_samples <- filter(collected_samples_restricted, sens==0.4 & var%in%c(0.1, 1) & N == 50) %>%
+  #mutate(Parameter =ifelse(Parameter!= "luce", Parameter, "phi")) %>%
+  filter(Parameter!= "luce") %>%
+  mutate(var=factor(var))
+true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"),
+                          value    = c(   .88,     .61,    .69,  2.25))
+sub_pop_means <- collected_true_pop_means_restricted %>%
+  filter(sens == c(0.4) & N==50 &
+           var %in% c(0.1, 1) &
+           Parameter != "phi") %>% mutate(var=factor(var))
+p1<- ggplot(subset(plot_samples),
+            aes(x=value, color=Transformation, linetype=var))+
+  #geom_vline(data=subset(true_params), aes(xintercept=value))+
+  geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
+  geom_vline(data=subset(sub_pop_means, sens==0.4 & var%in% c(0.1, 1) & N==50), 
+             aes(xintercept=value, linetype=var))+
+  scale_color_manual(values=two_colors_transformations)+
+  labs(linetype="Variability", y="Posterior density", x="Value")+
+  facet_wrap(.~Parameter, scales = "free", labeller = label_parsed)+
+  custom_theme+
+  theme(legend.direction = "vertical", legend.box = "vertical",
+        legend.position = "right")
+
+  # theme(legend.direction = "vertical", legend.box = "horizontal",
+  #       legend.position = "inside",
+  #       legend.position.inside = c(0.7, 0.25),
+  #       legend.justification = c(0,1))
+p1
+ggsave("figures/Recovery_restricted_distributions.eps",
+       width = 17.62, height=8, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_distributions.png",
+       width = 17.62, height=8, units="cm",dpi=900)
+
+
+
+differences_df <- collected_samples_restricted %>% 
+  mutate(iter=1:n(),.by=c(N, var, sens, parname, Parameter, Transformation)) %>% select(-parname) %>% 
+  pivot_wider(names_from="Transformation", values_from = value) %>%
+  mutate(difference = Correct-Original) %>%
+  group_by(N, sens, var, Parameter) %>%
+  reframe(Med=median(difference), 
+          lower = quantile(difference, probs = 0.025),
+          upper = quantile(difference, probs = 0.975)) 
+plot_differences_df <- differences_df %>% filter(sens==0.4) %>%
+#  mutate(Parameter = ifelse(Parameter=="luce", "phi", Parameter))
+  filter(Parameter!="luce")
+ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
+  geom_point()+geom_line(aes(group=1))+
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
+  geom_hline(aes(yintercept=0), linetype="dashed")+
+  facet_nested(Parameter~"Sample~Size"+N, scales = "free_y", labeller=label_parsed)+ 
+  labs(x="Variability between individuals", y="Differences in the mean estimates")+
+  custom_theme
+ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.eps",
+       width = 12, height=12, units="cm",dpi=600, device = cairo_ps)
+ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.png",
+       width = 12, height=12, units="cm",dpi=900)
+
+#___________________________________________________________________----
+#_______                 For Supplement                     ________----
+#___________________________________________________________________----
+# D  Refitting Rieskamp-data with original model                    ----
 ## 1. Fit the hierarchical CPT-model                                ----
 
 # Define initial values for parameters 
@@ -209,7 +521,7 @@ ggsave("figures/Rieskamp_Original.png",
        width = 17.62, height=9/0.7, units="cm",dpi=900)
 
 #___________________________________________________________________----
-# C  Re-do (Extended) original simulation study (unconstrained)     ----
+# E  Re-do (Extended) original simulation study (unconstrained)     ----
 
 ## 1. Actual parameter recovery analysis                            ----
 
@@ -450,246 +762,9 @@ ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.png",
 
 
 #___________________________________________________________________----
-# D  Re-do (Extended) original simulation study (alpha=beta)        ----
-## 1. Actual parameter recovery analysis                            ----
-
-# Define initial values for parameter
-inits = function() {
-  list(mu.phi.alpha = 0.7, sigma.phi.alpha = 1,
-       mu.phi.gamma = 0.7, sigma.phi.gamma = 1, 
-       mu.phi.delta = 0.7, sigma.phi.delta = 1,
-       lmu.lambda = 0, lsigma.lambda = 0.5, 
-       lmu.luce = 0, sigma.phi.luce = 0.5)
-}
-
-
-# Define the variables of interest. JAGS will return these to R 
-# when the analysis is finished (and JAGS is closed).	
-parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
-               "gamma", "mu.phi.gamma", "mu.gamma", "sigma.phi.gamma", "mu.gamma_sebi",
-               "delta", "mu.phi.delta", "mu.delta", "sigma.phi.delta", "mu.delta_sebi",
-               "lambda", "lmu.lambda", "mu.lambda", "lsigma.lambda", "mu.luce_sebi",
-               "luce", "lmu.luce", "mu.luce", "lsigma.luce", "mu.lambda_sebi"
-)
-
-
-
-## Set mean parameters for simulation
-alpha <- .88
-gamma <- .61 
-delta <- .69
-lambda <- 2.25
-
-## Define the different settings that should be compared
-phis <- c(.04, .14, .40) # choice sensitivity
-Nsbjs <- c(20, 50, 90) # number of subjects
-variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
-
-## Actually do the simulation, save simulation, and model fitting
-## Only do this, when all analysis should be done again (takes long!)
-if (REDOALLANALYSIS) {
-  dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
-  N <- VAR <- PHI <- 1
-  for (N  in 1:3) {
-    cur_n <- Nsbjs[N]
-    Data <- matrix(NA, nrow=60, ncol=cur_n)
-    for (VAR in 1:3) {
-      cur_var <- variabilities[VAR]
-      for ( PHI in 1:3) {
-        cur_sens <- phis[PHI]
-        seeeed <- 2201 + 100*N + 10*VAR + PHI 
-        set.seed(seeeed)
-        ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
-        Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
-        Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
-        Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
-        # Draw from Gamma distribution with mean lambda and variance cur_var
-        Lambdas <- rgamma(cur_n, shape= lambda^2/cur_var , scale=cur_var/lambda)
-        
-        for (k in 1:cur_n) {
-          Data[,k] <- simulate_CPT_individ(Alphas[k], Alphas[k], Gammas[k], Deltas[k], Lambdas[k], cur_sens)
-        }
-        params <- data.frame(alpha=Alphas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=cur_sens)
-        simulation_pars <- list(N = cur_n, var=cur_var, sens=cur_sens)
-        save(Data, params, simulation_pars,
-             file=paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-        
-        rec_samples =  jags.parallel(simu_data, parameters,
-                                     model.file = original_restricted_model_recovery,
-                                     inits = inits,  n.chains = 4,
-                                     n.iter = 50000, n.burnin = 1000,
-                                     n.thin = 5,  n.cluster = 4, jags.seed = seeeed)
-        
-        rec_summary <- rec_samples$BUGSoutput$summary
-        rec_samples <- rec_samples$BUGSoutput$sims.array
-        save(Data, params, simulation_pars, rec_samples, rec_summary,
-             file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-        
-      }
-    }
-  }
-}
-
-## When the fitting is done, we load the results and combine the simulations
-if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")) {
-  collected_samples_restricted <- data.frame()
-  collected_summaries_restricted <- data.frame()
-  collected_true_pop_means_restricted <- data.frame()
-  for (N  in 1:3) {
-    cur_n <- Nsbjs[N]
-    for (VAR in 1:3) {
-      cur_var <- variabilities[VAR]
-      for ( PHI in 1:3) {
-        cur_sens <- phis[PHI]
-        if (file.exists(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
-          ## Load fit results
-          load(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          
-          ## Combine the whole posterior samples of population parameters
-          temp <- rec_samples[,, (cur_n * 5 + 5 + 1:10)]    
-          par_names <- dimnames(temp)[[3]]
-          dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
-          colnames(temp) <- par_names      
-          temp <- as.data.frame(temp) 
-          head(temp)
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_samples_restricted <- rbind(collected_samples_restricted, temp)
-          
-          ## Combine the posterior summaries of population parameters
-          temp <- rec_summary[(cur_n * 5 + 5 + 1:10),]
-          temp <- temp %>% as.data.frame() %>%
-            select(c(1,2,3,5,7)) %>% 
-            rownames_to_column("parname") 
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_summaries_restricted <- rbind(collected_summaries_restricted, temp)
-          
-          ## Combine actual sampled population means
-          load(paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          temp <- colMeans(params) %>% data.frame()  %>% 
-            rownames_to_column("Parameter")
-          colnames(temp)[2] <- "value"
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_true_pop_means_restricted <- rbind(collected_true_pop_means_restricted, temp)
-          
-        }
-      }
-    }
-  }
-  ## Clean and Format Parameter Labels
-  collected_samples_restricted <- collected_samples_restricted %>% 
-    #filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
-    pivot_longer(1:10, names_to="parname") %>%
-    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
-           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
-  collected_summaries_restricted <- collected_summaries_restricted %>% 
-    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
-           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
-  
-  save(collected_samples_restricted,collected_summaries_restricted, collected_true_pop_means_restricted, 
-       file="saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")
-} else {
-  load("saved_details/Recovery_restricted/Collected_recovery_results_restricted.RData")
-}
-
-## 2. Visualize original restricted parameter recovery analysis     ----
-
-# ## Extend Nilsson et al. (2011), Figure 2:
-# # Note: variability in Nilsson et al is 0; and N = 30; but the following are
-# # the values most close to those in Nilsson's paper:
-# plot_samples <- filter(collected_samples_restricted, sens==0.4 & var%in%c(0.1, 1) & N == 20) %>%
-#   filter(Parameter != "luce") %>%
-#   mutate(var=paste0("Variability: ", var))
-# true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
-#                           value    = c(   .88,     .61,    .69,  2.25))
-# p1<- ggplot(subset(plot_samples, Parameter!="lambda"),
-#             aes(x=value, color=Transformation))+
-#   geom_vline(data=subset(true_params, Parameter!="lambda"), aes(xintercept=value))+
-#   geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
-#   scale_color_manual(values=two_colors_transformations)+
-#   facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)+
-#   theme(strip.text.y = element_blank(), strip.background.y = element_blank())
-# p2 <- ggplot(subset(plot_samples, Parameter=="lambda"),
-#              aes(x=value, color=Transformation))+
-#   geom_vline(data=subset(true_params, Parameter=="lambda"), aes(xintercept=value))+
-#   scale_color_manual(values=two_colors_transformations)+
-#   geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
-#   xlim(c(1, 3.7))+theme(axis.title.y = element_blank())+
-#   facet_grid2(var~Parameter, scales = "free", labeller = label_parsed)
-# ggarrange(p1, p2, 
-#           widths = c(0.7, 0.3), nrow=1, common.legend = TRUE, legend="bottom")
-# 
-
-# true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"), 
-#                           value    = c(   .88,    .61,    .69,  2.25))
-# pd <- position_dodge(width=0.4)
-# ggplot(filter(collected_summaries_restricted,Parameter!="luce"), aes(y=mean, x=interaction(N,var), color=Transformation))+
-#   geom_hline(data=true_params, aes(yintercept=value))+
-#   geom_point(position=pd)+
-#   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), position=pd, width=0.2)+
-#   facet_grid(Parameter~sens, scales = "free")
-# 
-
-pd <- position_dodge(width=0.4)
-# Only take the extreme sampling options for each factor
-sub_results <- subset(collected_summaries_restricted,Parameter!="luce") %>%
-  filter(sens %in% c(0.04, 0.4) &
-           var %in% c(0.1, 1)) %>%
-  mutate(var=paste0("Variability: ", var),
-         sens=paste0("Sensitivity: ", sens))
-sub_pop_means <- collected_true_pop_means_restricted %>%
-  filter(sens %in% c(0.04, 0.4) &
-           var %in% c(0.1, 1) &
-           Parameter != "phi") %>%
-  mutate(var=paste0("Variability: ", var),
-         sens=paste0("Sensitivity: ", sens)) %>%
-  merge(data.frame(Transformation=c("Original", "Correct")))
-pd <- position_dodge(width=0.2)
-ggplot(sub_results,
-       aes(y=`50%`, x=as.factor(N), color=Transformation))+
-  geom_hline(data=subset(true_params,Parameter!="beta"), aes(yintercept=value))+
-  geom_errorbar(data=sub_pop_means , aes(ymin=value, y=value,ymax=value), linetype="dashed", color="gray20")+
-  geom_point(position=pd)+
-  geom_line(aes(group=Transformation),position=pd)+
-  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
-  scale_color_manual(values=two_colors_transformations)+
-  facet_nested(Parameter~var+sens, scales = "free", labeller = label_parsed )+
-  labs(y="Parameter values", x="Simulated sample size")+
-  custom_theme
-ggsave("figures/Recovery_restricted_posteriorCIs.eps",
-       width = 17.62, height=22.62, units="cm",dpi=600, device = cairo_ps)
-ggsave("figures/Recovery_restricted_posteriorCIs.png",
-       width = 17.62, height=22.62, units="cm",dpi=900)
-
-
-
-
-
-differences_df <- collected_samples_restricted %>% 
-  mutate(iter=1:n(),.by=c(N, var, sens, parname, Parameter, Transformation)) %>% select(-parname) %>% 
-  pivot_wider(names_from="Transformation", values_from = value) %>%
-  mutate(difference = Correct-Original) %>%
-  group_by(N, sens, var, Parameter) %>%
-  reframe(Med=median(difference), 
-          lower = quantile(difference, probs = 0.025),
-          upper = quantile(difference, probs = 0.975)) 
-plot_differences_df <- differences_df %>% filter(sens==0.4) %>%
-  mutate(Parameter = ifelse(Parameter=="luce", "phi", Parameter))
-ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
-  geom_point()+geom_line(aes(group=1))+
-  geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
-  geom_hline(aes(yintercept=0), linetype="dashed")+
-  facet_nested(Parameter~"Sample~Size"+N, scales = "free_y", labeller=label_parsed)+ 
-  labs(x="Variability between individuals", y="Differences in the mean estimates")+
-  custom_theme
-ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.eps",
-       width = 12, height=12, units="cm",dpi=600, device = cairo_ps)
-ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.png",
-       width = 12, height=12, units="cm",dpi=900)
-
-#___________________________________________________________________----
 #______         Extending parameter ranges               ___________----
 #___________________________________________________________________----
-# E  Refitting Rieskamp-data with model with wider parameter ranges ----
+# F  Refitting Rieskamp-data with model with wider parameter ranges ----
 ## 1. Fit the hierarchical CPT-model with wider par-ranges          ----
 
 # Define initial values 
@@ -753,7 +828,7 @@ ggsave("figures/Rieskamp_Widerrange.png",
 
 
 #___________________________________________________________________----
-# F  Simulation study using wider parameter ranges (alpha=beta)     ----
+# G  Simulation study using wider parameter ranges (alpha=beta)     ----
 
 ## 1. Actual Parameter recovery analysis                            ----
 
@@ -991,7 +1066,7 @@ ggsave("figures/Recovery_restricted_widerange_trafodifferences_SUPPLEMENT.png",
 #___________________________________________________________________----
 #______     Allowing correlated random effects           ___________----
 #___________________________________________________________________----
-# G  Refitting Rieskamp-data with model with correlated random effs ---- 
+# H  Refitting Rieskamp-data with model with correlated random effs ---- 
 ## 1. Fit the hierarchical CPT-model                                -----  
 InvSig.trans.pars <- structure(c(1, 0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1), dim=c(5,5))
 # Define initial values for variables (variables are defined in: cpt_hierarchical_model.txt)
@@ -1106,4 +1181,4 @@ ggsave("figures/Rieskamp_Correlated_Correlations.png",
 
 
 #___________________________________________________________________----
-# F  Simulation study using wider parameter ranges + correlated pars ----
+# I  Simulation study using wider parameter ranges + correlated pars ----
