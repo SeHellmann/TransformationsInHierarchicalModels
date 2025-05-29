@@ -96,9 +96,11 @@ original_restricted_model = "jags_models/cpt_hierarchical_restricted.txt"
 original_full_model = "jags_models/cpt_hierarchical_model.txt"
 widerange_restricted_model = "jags_models/cpt_hierarchical_restricted_widerange.txt"
 correlated_model <- "jags_models/cpt_hierarchical_ correlated_pars_model.txt"
+
 original_full_model_recovery = "jags_models/cpt_hierarchical_recovery.txt"
 original_restricted_model_recovery = "jags_models/cpt_hierarchical_restricted_recovery.txt"
 widerange_restricted_model_recovery = "jags_models/cpt_hierarchical_restricted_widerparrange_recovery.txt"
+correlated_model_recovery <- "jags_models/cpt_hierarchical_ correlated_pars_recovery.txt"
 
 #___________________________________________________________________----
 # A  Read and prepare experimental data define JAGS inputs          ----
@@ -841,7 +843,7 @@ inits = function(){
        lmu.luce = 0, sigma.phi.luce = 0.5)
 }
 
-# Define the variables of interest. WinBugs will return these to R when the analysis is finished (and WinBugs is # closed).	
+# Define the variables of interest. JAGS will return these to R when the analysis is finished (and WinBugs is # closed).	
 parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
                "gamma", "mu.phi.gamma", "mu.gamma", "sigma.phi.gamma", "mu.gamma_sebi",
                "delta", "mu.phi.delta", "mu.delta", "sigma.phi.delta", "mu.delta_sebi",
@@ -1182,3 +1184,144 @@ ggsave("figures/Rieskamp_Correlated_Correlations.png",
 
 #___________________________________________________________________----
 # I  Simulation study using wider parameter ranges + correlated pars ----
+
+## 1. Actual Parameter recovery analysis                            ----
+
+# Define initial values for variables
+InvSig.trans.pars <- structure(c(1, 0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1), dim=c(5,5))
+inits = function() {
+  list(InvSig.trans.pars = structure(c(1, 0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1), dim=c(5,5)),
+       mu.trans.pars = c(-1,-1,-1, 0, 0)) # Priors are at alpha=delta=gamma==lambda=phi=1
+}
+
+# Define the variables of interest. JAGS will return these to R when the analysis is finished	
+parameters = c("mu.trans.pars","Sig.trans.pars",
+               "alpha",  "mu.alpha", "mu.alpha_sebi",
+               "gamma",  "mu.gamma", "mu.gamma_sebi",
+               "delta",  "mu.delta","mu.delta_sebi",
+               "luce",   "mu.luce",   "mu.lambda_sebi",
+               "lambda", "mu.lambda",  "mu.luce_sebi"
+)
+
+### Set up simulation parameters                      #----
+## Get mean and variance parameters for the simulation from previous fits
+## here, population-level distributions are defined on the real-scale
+load("saved_details/Refitted_Data_correlated.RData")
+mus <-   as.numeric(res_rieskamp_correlated$summaries[paste0("mu.trans.pars[", 1:5,"]"),"50%"])
+Sigma <- res_rieskamp_correlated$summaries[paste0("Sig.trans.pars[", 1:5, ",",rep(1:5,each=5),  "]"),"50%"]
+Sigma <- matrix(Sigma, 5, 5)  
+# Get symmetric matrix-square root for covariance matrix 
+A = mhalf(Sigma)  
+
+## Define the different settings that should be compared
+Nsbjs <- c(20, 50, 90) # number of subjects
+variabilities <- c(0.33, 1, 3) # btw-sbj variability in "times the fitted variances"
+
+## Actually do the simulation, save simulation, and model fitting
+## Only do this, when all analysis should be done again (takes long!)
+if (REDOALLANALYSIS) {
+  dir.create("saved_details/Recovery_correlated", recursive = TRUE, showWarnings = FALSE)
+  N <- VAR <- 1
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    Data <- matrix(NA, nrow=60, ncol=cur_n)
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      seeeed <- 1234321 + 123*N + 45*VAR 
+      set.seed(seeeed)
+      ## Sample real-valued individual parameters from multivariate normal
+      Indiv_Mean <- sapply(1:cur_n, function(x) mus + sqrt(cur_var)*A %*% rnorm(5, 0, 1))
+      
+      Alphas <- 2*pnorm(Indiv_Mean[1,])
+      Gammas <- 2*pnorm(Indiv_Mean[2,])
+      Deltas <- 2*pnorm(Indiv_Mean[3,])
+      Luces   <-    exp(Indiv_Mean[4,])
+      Lambdas <-    exp(Indiv_Mean[5,])
+      
+      for (k in 1:cur_n) {
+        Data[,k] <- simulate_CPT_individ(Alphas[k], Alphas[k], Gammas[k], Deltas[k], Lambdas[k], Luces[k])
+      }
+      params <- data.frame(alpha=Alphas, gamma=Gammas, delta=Deltas, lambda=Lambdas, phi=Luces)
+      simulation_pars <- list(N = cur_n, var=cur_var)
+      save(Data, params, simulation_pars,
+           file=paste0("saved_details/Recovery_correlated/SampledData_N_", cur_n,"_var_", cur_var, ".RData"))
+      
+      rec_samples =  jags.parallel(data, parameters,
+                                   model.file = correlated_model_recovery,
+                                   inits = inits, n.chains = 9,
+                                   n.iter = 200000, n.burnin = 10000,
+                                   n.thin = 50, n.cluster = 9,
+                                   jags.seed = 4499)
+      rec_summary <- rec_samples$BUGSoutput$summary
+      rec_samples <- rec_samples$BUGSoutput$sims.array
+      save(Data, params, simulation_pars, rec_samples, rec_summary,
+           file=paste0("saved_details/Recovery_correlated/RecoveryResult_N_", cur_n,"_var_", cur_var, ".RData"))
+      
+    }
+  }
+}
+
+
+## When the fitting is done, we load the results and combine the simulations
+if (!file.exists("saved_details/Recovery_correlated/Collected_recovery_results_correlated.RData")) {
+  collected_samples_correlated <- data.frame()
+  collected_summaries_correlated <- data.frame()
+  collected_true_pop_means_correlated <- data.frame()
+  for (N  in 1:3) {
+    cur_n <- Nsbjs[N]
+    for (VAR in 1:3) {
+      cur_var <- variabilities[VAR]
+      load(paste0("saved_details/Recovery_correlated/RecoveryResult_N_", cur_n,"_var_", cur_var, ".RData"))
+
+      ## Combine the whole posterior samples of population parameters
+      temp <- rec_samples[,, (25 + 30 * 5 + 1+ 1:10)]    
+      par_names <- dimnames(temp)[[3]]
+      dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
+      colnames(temp) <- par_names      
+      temp <- as.data.frame(temp) 
+      head(temp)
+      temp <- cbind(temp, as.data.frame(simulation_pars))
+      collected_samples_correlated <- rbind(collected_samples_correlated, temp)
+      
+      ## Combine the posterior summaries of population parameters
+      temp <- rec_summary[ (25 + 30 * 5 + 1+ 1:10),]
+      temp <- temp %>% as.data.frame() %>%
+        select(c(1,2,3,5,7, 8)) %>% 
+        rownames_to_column("parname") 
+      temp <- cbind(temp, as.data.frame(simulation_pars))
+      collected_summaries_correlated <- rbind(collected_summaries_correlated, temp)
+      
+      ## Combine actual sampled population means
+      load(paste0("saved_details/Recovery_correlated/SampledData_N_", cur_n,"_var_", cur_var,".RData"))
+      temp <- colMeans(params) %>% data.frame()  %>% 
+        rownames_to_column("Parameter")
+      colnames(temp)[2] <- "value"
+      temp <- cbind(temp, as.data.frame(simulation_pars))
+      collected_true_pop_means_correlated <- rbind(collected_true_pop_means_correlated, temp)
+    }
+  }
+  ## Clean and Format Parameter Labels
+  collected_samples_correlated <- collected_samples_correlated %>% 
+    #filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
+    pivot_longer(1:10, names_to="parname") %>%
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
+           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
+  collected_summaries_correlated <- collected_summaries_correlated %>% 
+    mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
+           Parameter = sub("_sebi", "", sub("mu.", "", parname)))
+  
+  save(collected_samples_correlated,collected_summaries_correlated, collected_true_pop_means_correlated, 
+       file="saved_details/Recovery_correlated/Collected_recovery_results_correlated.RData")
+} else {
+  load("saved_details/Recovery_correlated/Collected_recovery_results_correlated.RData")
+}
+
+
+## Check Rhats of parameters
+collected_summaries_correlated[order(-collected_summaries_correlated$Rhat),]
+
+arrange(collected_true_pop_means_correlated, Parameter)
+arrange(collected_samples_correlated, parname, value)
+
+
+
