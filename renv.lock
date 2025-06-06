@@ -1071,6 +1071,31 @@
       ],
       "Hash": "c72fbb0e7ee73ea7497ffeebe44f0d91"
     },
+    "kableExtra": {
+      "Package": "kableExtra",
+      "Version": "1.4.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "digest",
+        "grDevices",
+        "graphics",
+        "htmltools",
+        "knitr",
+        "magrittr",
+        "rmarkdown",
+        "rstudioapi",
+        "scales",
+        "stats",
+        "stringr",
+        "svglite",
+        "tools",
+        "viridisLite",
+        "xml2"
+      ],
+      "Hash": "532d16304274c23c8563f94b79351c86"
+    },
     "knitr": {
       "Package": "knitr",
       "Version": "1.50",
@@ -1591,7 +1616,7 @@
       "Package": "rjags",
       "Version": "4-16",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "coda"
@@ -1774,6 +1799,23 @@
       ],
       "Hash": "184d7799bca4ba8c3be72ea396f4b9a3"
     },
+    "svglite": {
+      "Package": "svglite",
+      "Version": "2.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "base64enc",
+        "cli",
+        "cpp11",
+        "lifecycle",
+        "rlang",
+        "systemfonts",
+        "textshaping"
+      ],
+      "Hash": "a8a754856a1b29a24cbe269b8e03989a"
+    },
     "sys": {
       "Package": "sys",
       "Version": "3.4.3",
@@ -1783,11 +1825,12 @@
     },
     "systemfonts": {
       "Package": "systemfonts",
-      "Version": "1.2.1",
+      "Version": "1.2.3",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
+        "base64enc",
         "cpp11",
         "grid",
         "jsonlite",
@@ -1795,7 +1838,7 @@
         "tools",
         "utils"
       ],
-      "Hash": "f8b2924480a2679e2bad9750646112fe"
+      "Hash": "fe31683d2c6fd9a5724bcdf8ed44ded9"
     },
     "tensr": {
       "Package": "tensr",
@@ -2073,6 +2116,18 @@
         "rlang"
       ],
       "Hash": "f5130b2f3d461964bac93cc618013231"
+    },
+    "xtable": {
+      "Package": "xtable",
+      "Version": "1.8-4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "stats",
+        "utils"
+      ],
+      "Hash": "b8acdf8af494d9ec19ccb2481a9b11c2"
     },
     "yaml": {
       "Package": "yaml",

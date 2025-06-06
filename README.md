@@ -18,9 +18,11 @@ Install all packages (or use `renv::restore()`), and source the `Main_Script.R`.
  
 ### References
 
+Nilsson, H. & Rieskamp, J. & Wagenmakers, E.-J. (2011). Hierarchical Bayesian parameter estimation for cumulative prospect theory. Journal of Mathematical Psychology. 55. 84-93. [10.1016/j.jmp.2010.08.006](https://doi.org/10.1016/j.jmp.2010.08.006). 
+
 Rieskamp, J. (2008). The probabilistic nature of preferential choice. Journal of Experimental Psychology: Learning, Memory, and Cognition, 34(6), 1446–1465. [10.1037/a0013646](https://doi.org/10.1037/a0013646).
 
-Nilsson, H. & Rieskamp, J. & Wagenmakers, E.-J. (2011). Hierarchical Bayesian parameter estimation for cumulative prospect theory. Journal of Mathematical Psychology. 55. 84-93. [10.1016/j.jmp.2010.08.006](https://doi.org/10.1016/j.jmp.2010.08.006). 
+Pachur, T., Mata, R., & Hertwig, R. (2017). Who dares, who errs? disentangling cognitive and motivational roots of age differences in decisions under risk. Psychological Science, 28 (4), 504–518. [10.1177/0956797616687729](https://doi.org/10.1177/0956797616687729)
 
 *Add Preprint Here*
 
