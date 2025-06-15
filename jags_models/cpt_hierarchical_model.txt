@@ -20,22 +20,24 @@ model
 		# We start by defining that participant j has a unique parameter-value 
 		# on each of the six parameters: alpha, beta, gamma, delta, lambda, and luce 
 		# (the choice-rule parameter).
+		# Note that the parameter 'luce' is used in the logit choice rule below (not in the Luce choice rule as the name suggests).  
+		# phi() is the cumulative distribution of the standard normal distribution (inverse probit)
 
 		alpha[j] <- phi(alpha.phi[j])
 		beta[j] <- phi(beta.phi[j])
 		gamma[j] <- phi(gamma.phi[j])
 		delta[j] <- phi(delta.phi[j])	
 		luce[j]   <- exp(lluce[j]) 
-            	lambda[j] <- exp(llambda[j])
+    lambda[j] <- exp(llambda[j])
 		
-		# We put group-level normal?s on the individual parameters:
+		# We put group-level normals on the individual parameters:
 
 		alpha.phi[j] ~ dnorm(mu.phi.alpha,tau.phi.alpha)T(-3, 3)
 		beta.phi[j] ~ dnorm(mu.phi.beta,tau.phi.beta)T(-3, 3)
 		gamma.phi[j] ~ dnorm(mu.phi.gamma,tau.phi.gamma)T(-3, 3)
 		delta.phi[j] ~ dnorm(mu.phi.delta,tau.phi.delta)T(-3, 3)
-            	lluce[j]   ~ dnorm(lmu.luce, ltau.luce)
-            	llambda[j] ~ dnorm(lmu.lambda, ltau.lambda)
+    lluce[j]   ~ dnorm(lmu.luce, ltau.luce)
+    llambda[j] ~ dnorm(lmu.lambda, ltau.lambda)
 
 
 		
@@ -60,12 +62,11 @@ model
 	sigma.phi.delta ~ dunif(0,10)
 	
 	lmu.lambda    ~ dunif(-2.3, 1.61) 
-      	ltau.lambda  <- pow(lsigma.lambda,-2)
-      	lsigma.lambda ~ dunif(0,1.13)    
-
-      	lmu.luce    ~ dunif(-2.3, 1.61)   
-      	ltau.luce  <- pow(lsigma.luce,-2)
-      	lsigma.luce ~ dunif(0,1.13)       
+	ltau.lambda  <- pow(lsigma.lambda,-2)
+	lsigma.lambda ~ dunif(0,1.13)
+	lmu.luce    ~ dunif(-2.3, 1.61)   
+	ltau.luce  <- pow(lsigma.luce,-2)
+	lsigma.luce ~ dunif(0,1.13)       
 
 	
 	# To obtain the mean of the hyper distribution on the wanted scale:
@@ -133,7 +134,7 @@ model
 
 # It is defined that j:s choice for gamble-pair i is sampled from a Bernoulli-distribution 
 # with p = binval[i,j].
-# The exponential choice-rule is used to compute binval[i,j] 
+# The logit choice-rule is used to compute binval[i,j] 
 # (in this case: binval[i,j] = probability of B-choice).
       
 			binval[i,j] <- (1)/(1+exp((-1*luce[j])*(Vf.b[i,j]-Vf.a[i,j])))
@@ -179,13 +180,13 @@ model
 		for (i in 121:180)# Item-Loop, mixed gambles,gamble A
    		{
      			v.x.a[i,j] <- pow(prospects.a[i,3],alpha[j])       
-      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * prospects.a[i,1]),beta[j])       
+      		v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * prospects.a[i,1]),beta[j])       
 
      			w.x.a[i,j] <- pow(prospects.a[i,4],gamma[j]) / pow(z.a[i,j],(1/gamma[j])) 
-      			w.y.a[i,j] <- pow(prospects.a[i,2],delta[j]) / pow(z.a[i,j],(1/delta[j])) 
-      			z.a[i,j]   <- pow(prospects.a[i,4],gamma[j]) + pow(prospects.a[i,2],delta[j]) 
+      		w.y.a[i,j] <- pow(prospects.a[i,2],delta[j]) / pow(z.a[i,j],(1/delta[j])) 
+      		z.a[i,j]   <- pow(prospects.a[i,4],gamma[j]) + pow(prospects.a[i,2],delta[j]) 
 
-      			Vf.a[i,j]  <- w.x.a[i,j] * v.x.a[i,j] + w.y.a[i,j] * v.y.a[i,j]
+      		Vf.a[i,j]  <- w.x.a[i,j] * v.x.a[i,j] + w.y.a[i,j] * v.y.a[i,j]
       
    		}
 

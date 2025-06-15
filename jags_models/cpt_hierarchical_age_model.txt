@@ -20,6 +20,8 @@ model
 		# We start by defining that participant j has a unique parameter-value 
 		# on each of the six parameters: alpha, gamma, delta_p, , delta_m, lambda, and luce 
 		# (the choice-rule parameter).
+		# Note that the parameter 'luce' is used in the logit choice rule below (not in the Luce choice rule as the name suggests).  
+		# phi() is the cumulative distribution of the standard normal distribution (inverse probit)
 
 		alpha[j]   <- phi(alpha.phi[j])
 		gamma[j]   <- phi(gamma.phi[j])
@@ -132,7 +134,7 @@ model
 
 # It is defined that j:s choice for gamble-pair i is sampled from a Bernoulli-distribution 
 # with p = binval[i,j].
-# The exponential choice-rule is used to compute binval[i,j] 
+# The logit choice-rule is used to compute binval[i,j] 
 # (in this case: binval[i,j] = probability of A-choice).
       
 			binval[i,j] <- (1)/(1+exp((-1*luce[j])*(Vf.a[i,j]-Vf.b[i,j])))

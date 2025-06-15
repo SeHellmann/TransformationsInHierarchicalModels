@@ -3,7 +3,7 @@ This repository contains the materials for the paper "A biased parameter transfo
 
 
 ## Complete reproducibility
-To completely reproduce the exact results from sctrach (which will take pretty long), do the follwing:
+To completely reproduce the exact results from scratch (which will take pretty long), do the following:
 - remove all `.RData` files, 
 - install JAGS (version 4.3.1)
 - open the RProject, install the `renv` package, and call `renv::activate()` and `renv::restore()`

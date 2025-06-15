@@ -69,23 +69,7 @@ print(getwd())
   library(readxl)
   library(kableExtra)# For the first table of posteriors
   library(xtable)    # For the second table of posteriors
-  if (grepl("Windows", osVersion)) {
-    # To use Times as font on Windows (otherwise ignore the ggplot warnings)
-    windowsFonts(Times=windowsFont("Times New Roman"))
-  }
-  two_colors_transformations <- c("#1b9e77", "#fc8d62")
-  # color_values <- palette.colors(n = 3, palette = "R4")[-1]
-  # color_values <- palette.colors(n = 3, palette = "Okab")[-1] %>% as.character()
-  # color_values <- palette.colors(n = 2, palette = "Okab") %>% as.character()
-  custom_theme <- theme_bw()+
-    theme(text = element_text(family = "Times", size=12),
-          strip.text = element_text(family="Times", size=12),
-          legend.position = "bottom",
-          plot.margin = margin(0, 0, 0, 0, "cm"),
-          axis.text = element_text(size=12, family="Times", color="black"),
-          legend.spacing = unit(0,"line"),
-          legend.key.width=unit(1,"line"),
-          panel.spacing=unit(1, "lines"))
+  source('custom_theme.R') # import custom ggplot theme
   dir.create("figures", showWarnings = FALSE)
   dir.create("saved_details", showWarnings = FALSE)
   
@@ -94,11 +78,11 @@ print(getwd())
 }
 ## Import simulation function and define JAGS model file names
 source("simulate_CPT.R")
-original_restricted_model = "jags_models/cpt_hierarchical_restricted.txt"
-original_full_model = "jags_models/cpt_hierarchical_model.txt"
+original_restricted_model <- "jags_models/cpt_hierarchical_restricted.txt"
+original_full_model <- "jags_models/cpt_hierarchical_model.txt"
 
-original_full_model_recovery = "jags_models/cpt_hierarchical_recovery.txt"
-original_restricted_model_recovery = "jags_models/cpt_hierarchical_restricted_recovery.txt"
+original_full_model_recovery <- "jags_models/cpt_hierarchical_recovery.txt"
+original_restricted_model_recovery <- "jags_models/cpt_hierarchical_restricted_recovery.txt"
 
 Pachur_age_model <- "jags_models/cpt_hierarchical_age_model.txt"
 
@@ -120,7 +104,7 @@ prospects.b <- array(0,dim=c(180,4))
 prospects.a <- array(0,dim=c(180,4))
 
 # Arrange so that v and p related to the relatively poor outcome ends 
-# up in collumn 1 and 2
+# up in column 1 and 2
 for (i in 1:180){
   
   if (prospects.a.temp[i,1] < prospects.a.temp[i,3]){
@@ -139,18 +123,18 @@ for (i in 1:180){
 }
 
 # Load data (choice made by the first participant when presented the 
-# second gamble-pair is saved in column 1 row 2)
+# second gamble-pair is saved in column 1 row 2; 180 problems x 30 participants)
 rawdata <- as.matrix(read.table("Rieskamp_2008_data/Rieskamp_data.txt"))
 
 
 # Define what information that should be passed on to JAGS for the empirical data analysis
-data  = list("prospects.a", "prospects.b", "rawdata") 
+data <- list("prospects.a", "prospects.b", "rawdata") 
 
 
-# Subset mixed gambles for the recovry study and define JAGS-relevant objects
+# Subset mixed gambles for the recovery study and define JAGS-relevant objects
 mixed_prospects.a <- prospects.a[121:180,]
 mixed_prospects.b <- prospects.b[121:180,]
-simu_data  = list("mixed_prospects.a", "mixed_prospects.b", "Data", "cur_n") 
+simu_data  <- list("mixed_prospects.a", "mixed_prospects.b", "Data", "cur_n") 
 
 
 ## 2. Pachur et al (2017) age data                                  ----
@@ -163,6 +147,7 @@ lotteries_a <- gambles[,1:4]
 lotteries_b <- gambles[,5:8]
 
 ## Ensure that the smaller outcome (and corresponding probability) is always left
+## (lotteries_a[73:80,] entail only outcome 0 (o1=0,p1=.5,o2=0,p2=.5) )
 for (i in 1:nrow(lotteries_a)) {
   if (lotteries_a[i,1] > lotteries_a[i,3]) {
     lotteries_a[i,] <- lotteries_a[i,c(3,4,1,2)]
@@ -180,8 +165,11 @@ all(lotteries_b[73:105, 1] < 0 & lotteries_b[73:105, 3] > 0)
 all_choices <- choice_data[,1:122] %>% as.matrix()
 
 age_data <- read_xlsx("AgeData/PachurEtAl_Who errs, who dares_Data.xlsx",
-                      sheet = "Data")#, range="A1:B12811")
-age_data <- age_data %>% select(sbj=Subject, group=Age_group) %>%
+                      sheet = "Data", 
+                      range="A1:B12811" # include to omit the NA warnings for Speed
+                      )
+age_data <- age_data %>% 
+  select(sbj=Subject, group=Age_group) %>%
   distinct()
 young_choices <- all_choices[,{
   age_data %>% filter(group=="younger") %>% pull("sbj")
@@ -303,17 +291,24 @@ variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
 if (REDOALLANALYSIS) {
   dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
   N <- VAR <- PHI <- 1
-  for (N  in 1:3) {
+  for (N  in 1:3) { # for each subject ... 
     cur_n <- Nsbjs[N]
     Data <- matrix(NA, nrow=60, ncol=cur_n)
-    for (VAR in 1:3) {
+    for (VAR in 1:3) { # ... loop over all levels of variability ... 
       cur_var <- variabilities[VAR]
-      for ( PHI in 1:3) {
+      for ( PHI in 1:3) { # ... and over all levels of choice sensitivity 
         cur_sens <- phis[PHI]
         seeeed <- 2201 + 100*N + 10*VAR + PHI 
         set.seed(seeeed)
         ## Sample from Beta-distribution with mean alpha and scaled variance cur_var (not exactly the variance!)
         Alphas <- rbeta(cur_n, alpha*((alpha*(1-alpha))/cur_var *20 -1), (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1) )
+        # check means and variance of the beta distribution (statements below should be true) 
+        # shape_1 <- alpha*((alpha*(1-alpha))/cur_var *20 -1)
+        # shape_2 <- (1-alpha)*((alpha*(1-alpha))/cur_var *20 -1)
+        # mean <- shape_1/(shape_1+shape_2)
+        # variance <- shape_1*shape_2/((shape_1+shape_2)^2 * (shape_1+shape_2+1))
+        # mean == alpha
+        # round(variance,2) == round(cur_var/20,2)
         Gammas <- rbeta(cur_n, gamma*((gamma*(1-gamma))/cur_var *10 -1), (1-gamma)*((gamma*(1-gamma))/cur_var *10 -1) )
         Deltas <- rbeta(cur_n, delta*((delta*(1-delta))/cur_var *10 -1), (1-delta)*((delta*(1-delta))/cur_var *10 -1) )
         # Draw from Gamma distribution with mean lambda and variance cur_var
@@ -360,11 +355,11 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
           
           ## Combine the whole posterior samples of population parameters
           temp <- rec_samples[,, (cur_n * 5 + 5 + 1:10)]    
-          par_names <- dimnames(temp)[[3]]
+          par_names_temp <- dimnames(temp)[[3]] # to prevent overwriting existing par_names object
           dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
-          colnames(temp) <- par_names      
+          colnames(temp) <- par_names_temp      
           temp <- as.data.frame(temp) 
-          head(temp)
+          #head(temp)
           temp <- cbind(temp, as.data.frame(simulation_pars))
           collected_samples_restricted <- rbind(collected_samples_restricted, temp)
           
@@ -405,17 +400,19 @@ if (!file.exists("saved_details/Recovery_restricted/Collected_recovery_results_r
 }
 
 ## 2. Visualize original restricted parameter recovery analysis     ----
-pd <- position_dodge(width=0.4)
-# Only take the extreme sampling options for each factor
+
+# Only take the extreme sampling options for each factor (lowest/highest variance and sensitivity)
 true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"),
                           value    = c(   .88,     .61,    .69,  2.25)) %>%
   mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 sub_results <- subset(collected_summaries_restricted,Parameter!="luce") %>%
   filter(sens %in% c(0.04, 0.4) &
            var %in% c(0.1, 1)) %>%
   mutate(var=paste0("Variability: ", var),
          sens=paste0("Sensitivity: ", sens),
          Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 sub_pop_means <- collected_true_pop_means_restricted %>%
   filter(sens %in% c(0.04, 0.4) &
            var %in% c(0.1, 1) &
@@ -424,6 +421,7 @@ sub_pop_means <- collected_true_pop_means_restricted %>%
          sens=paste0("Sensitivity: ", sens),
          Parameter = factor(Parameter, levels=par_names, labels=par_labels)) %>%
   merge(data.frame(Transformation=c("Original", "Correct")))
+
 pd <- position_dodge(width=0.2)
 ggplot(sub_results,
        aes(y=`50%`, x=as.factor(N), color=Transformation))+
@@ -453,11 +451,13 @@ plot_samples <- filter(collected_samples_restricted, sens==0.4 & var%in%c(0.1, 1
 true_params <- data.frame(Parameter= c("alpha","gamma","delta","lambda"),
                           value    = c(   .88,     .61,    .69,  2.25)) %>%
   mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 sub_pop_means <- collected_true_pop_means_restricted %>%
   filter(sens == c(0.4) & N==50 &
            var %in% c(0.1, 1) &
            Parameter != "phi") %>% mutate(var=factor(var))%>%
   mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 p1<- ggplot(subset(plot_samples),
             aes(x=value, color=Transformation, linetype=var))+
   #geom_vline(data=subset(true_params), aes(xintercept=value))+
@@ -484,17 +484,21 @@ ggsave("figures/Recovery_restricted_distributions.png",
 
 
 differences_df <- collected_samples_restricted %>% 
-  mutate(iter=1:n(),.by=c(N, var, sens, parname, Parameter, Transformation)) %>% select(-parname) %>% 
+  mutate(iter=row_number(),.by=c(N, var, sens, parname, Parameter, Transformation)) %>% 
+  select(-parname) %>% 
   pivot_wider(names_from="Transformation", values_from = value) %>%
   mutate(difference = Correct-Original) %>%
   group_by(N, sens, var, Parameter) %>%
   reframe(Med=median(difference), 
           lower = quantile(difference, probs = 0.025),
           upper = quantile(difference, probs = 0.975)) 
-plot_differences_df <- differences_df %>% filter(sens==0.4) %>%
+
+plot_differences_df <- differences_df %>% 
+  filter(sens==0.4) %>%
 #  mutate(Parameter = ifelse(Parameter=="luce", "phi", Parameter))
   filter(Parameter!="luce")%>%
   mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   geom_point()+geom_line(aes(group=1))+
   geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
@@ -564,12 +568,12 @@ if (!file.exists("saved_details/Refitted_Age_Data.RData")) {
 
 load("saved_details/Refitted_Age_Data.RData")
 
-res_younger$summaries[order(-res_younger$summaries[,"Rhat"]),]
-res_older$summaries[order(-res_older$summaries[,"Rhat"]),]
+#res_younger$summaries[order(-res_younger$summaries[,"Rhat"]),] # Rhat(sigma.phi.alpha) = 1.188
+#res_older$summaries[order(-res_older$summaries[,"Rhat"]),]
 
 
 ## 2. Compare means between young and old                           ----
-plot_parameters = c("mu.alpha",   "mu.alpha_sebi",
+plot_parameters <- c("mu.alpha",   "mu.alpha_sebi",
                     "mu.gamma",   "mu.gamma_sebi",
                     "mu.delta_p", "mu.delta_p_sebi",
                     "mu.delta_m", "mu.delta_m_sebi",
@@ -577,22 +581,15 @@ plot_parameters = c("mu.alpha",   "mu.alpha_sebi",
                     "mu.luce",   "mu.lambda_sebi")
 collected_age_summaries <- rbind(
   cbind(as_tibble(res_older$summaries[plot_parameters,c("mean", "50%", "2.5%", "97.5%")]), `Age group`="Older", parname = plot_parameters),
-  cbind(as_tibble(res_younger$summaries[plot_parameters,c("mean", "50%", "2.5%", "97.5%")]),`Age group`="Younger", parname = plot_parameters)) %>%
+  cbind(as_tibble(res_younger$summaries[plot_parameters,c("mean", "50%", "2.5%", "97.5%")]),`Age group`="Younger", parname = plot_parameters)
+  ) %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
          Parameter = sub("_sebi", "", sub("mu.", "", parname)),
          Parameter = factor(Parameter, 
                             levels= c("alpha", "delta_m", "delta_p", "gamma", "lambda", "luce"),
                             labels= c("alpha", "delta^'-'", "delta^'+'", "gamma", "lambda", "phi")))
 
-pd <- position_dodge(width=0.5)
-# collected_age_summaries %>% 
-#   ggplot(aes(x=Parameter, color=Transformation, shape=`Age group`))+
-#   scale_color_manual(values=two_colors_transformations)+
-#   geom_point(aes(y=`50%`), size=3, position=pd)+
-#   scale_x_discrete(labels = scales::parse_format())+
-#   ylab("Posterior Median (95%CI)")+
-#   geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
-#   custom_theme
+
 pd <- position_dodge(width=0.2)
 collected_age_summaries %>% 
   ggplot(aes(x=`Age group`, color=Transformation, shape=`Age group`))+
@@ -615,6 +612,7 @@ ggsave("figures/Age_Comparison.png",
 collected_age_samples <- rbind(
   cbind(as.data.frame(apply(res_older$samples[,,plot_parameters], 3, c)), group="Older"),
   cbind(as.data.frame(apply(res_younger$samples[,,plot_parameters], 3, c)), group="Younger"))
+
 age_samples_long <- collected_age_samples %>%
   pivot_longer(cols = -group, names_to = "parname", values_to = "samples") %>%
   mutate(Transformation = ifelse(grepl("sebi", parname), "Correct", "Original"), 
@@ -624,7 +622,9 @@ age_samples_long <- collected_age_samples %>%
                             labels= c("alpha", "delta^'-'", "delta^'+'", "gamma", "lambda", "phi")))
 
 summary_differences <- age_samples_long %>% 
-  group_by(Parameter, Transformation, group) %>% mutate(N=1:n()) %>% ungroup() %>% 
+  group_by(Parameter, Transformation, group) %>% 
+  mutate(N=1:n()) %>% 
+  ungroup() %>% 
   pivot_wider(id_cols=c(Parameter, Transformation, N), 
               values_from = samples, names_from = group) %>%
   mutate(diff=Older-Younger) %>% 
@@ -659,9 +659,10 @@ table_comparison2 <-collected_age_summaries %>%
   select( `Age group`, Parameter, Transformation, value) %>%
   rbind(summary_differences) %>%
   mutate(Parameter = factor(Parameter, 
-                            labels=c("$\\alpha$", "$\\delta^-$", "$\\delta^+$", "$\\gamma$", "$\\lambda$", "$\\phi$"))) %>% 
-  mutate(`Age group`= ifelse(grepl("Diff", `Age group`), "\\baselineskip=15pt Difference\\newline (Older-Younger)",
-                             `Age group`)) %>%
+                            labels=c("$\\alpha$", "$\\delta^-$", "$\\delta^+$", "$\\gamma$", "$\\lambda$", "$\\phi$")) ,
+         `Age group`= ifelse(grepl("Diff", `Age group`), "\\baselineskip=15pt Difference\\newline (Older-Younger)",
+                             `Age group`)
+         ) %>% 
   select(Parameter, Transformation, `Age group`, value) %>%
   pivot_wider(names_from = c(`Age group`)) %>% 
   arrange(Parameter, Transformation) %>%
@@ -672,7 +673,7 @@ table_comparison2 <-collected_age_summaries %>%
 
 
 table_comparison2 <- xtable(table_comparison2, align = c("l", "l", "l", "p{2.8cm}", "p{2.8cm}", "p{3.2cm}"),
-                            caption="\\raggedright Median and 95\\% CI for posterior distribution of parameters.")
+                            caption="\\raggedright Mean and 95\\% CI for posterior distribution of parameters.")
 addtorow <- list()
 addtorow$pos <- list(c(2, 4, 6, 8, 10, 12)) 
 addtorow$command <- c('\\midrule')
@@ -931,16 +932,16 @@ if (!file.exists("saved_details/Recovery_full/Collected_recovery_results.RData")
           
           ## Combine the whole posterior samples of population parameters
           temp <- rec_samples[,, (cur_n * 6 + 5 + 1:12)]    
-          par_names <- dimnames(temp)[[3]]
+          par_names_temp <- dimnames(temp)[[3]]
           dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
-          colnames(temp) <- par_names      
+          colnames(temp) <- par_names_temp      
           temp <- as.data.frame(temp) 
-          head(temp)
+          #head(temp)
           temp <- cbind(temp, as.data.frame(simulation_pars))
           collected_samples <- rbind(collected_samples, temp)
           
           ## Combine the posterior summaries of population parameters
-          temp <- rec_summary[(cur_n * 6 + 5 + 1:12),]
+          temp <- rec_summary[(cur_n * 6 + 5 + 1:12),] 
           temp <- temp %>% as.data.frame() %>%
             select(c(1,2,3,5,7)) %>% 
             rownames_to_column("parname") 
@@ -985,6 +986,7 @@ plot_samples <- filter(collected_samples, sens==0.4 & var%in%c(0.1, 1) & N == 20
 true_params <- data.frame(Parameter= c("alpha", "beta", "gamma","delta","lambda"), 
                           value    = c(   .88,    .88,       .61,    .69,  2.25))%>%
   mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
+
 ggplot(plot_samples, aes(x=value, linetype=as.factor(var), color=Transformation))+
   geom_vline(data=true_params, aes(xintercept=value))+
   geom_density(aes(group=interaction(Transformation, Parameter, var)), linewidth=1)+
@@ -1008,7 +1010,7 @@ ggsave("figures/Recovery_full_posteriordists.png",
 #   facet_grid(Parameter~sens, scales = "free")
 
 
-pd <- position_dodge(width=0.4)
+
 # Only take the extreme sampling options for each factor
 sub_results <- subset(collected_summaries,Parameter!="luce") %>%
   filter(sens %in% c(0.04, 0.4) &
@@ -1068,6 +1070,3 @@ ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.png",
 #   labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
 #   theme_bw()
 # 
-
-
-
