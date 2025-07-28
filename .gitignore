@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+Draft
+Code
+renv
+saved_details/Recovery_full/
+saved_details/Recovery_restricted/
+figures
+saved_details.zip

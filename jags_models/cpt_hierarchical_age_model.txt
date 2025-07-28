@@ -1,0 +1,214 @@
+# Fits Cumulative Prospect Theory
+# Data from Rieskamp (30 paritipants, 60 gamble-pairs 
+# with positive outcomes, 60 gamble-pairs with negative
+# outcomes, and 60 gamble-pairs with mixed outcomes)
+
+
+model
+{
+
+
+# The model assumes that every participant has a unique parameter-value 
+# on each of the six parameters of hierarchical-CPT (see, Nilsson, Rieskamp, & Wagnemakers, 2010).
+# Furthermore, it assumes that the individual values on parameter-dimension X 
+# are sampled from the hyperdistribution for X. This has to be defined in the model code.
+
+	
+	for (j in 1:N_parts)
+	{
+
+		# We start by defining that participant j has a unique parameter-value 
+		# on each of the six parameters: alpha, gamma, delta_p, , delta_m, lambda, and sens 
+		# (the choice-rule parameter).
+		# Note that the parameter 'sens' is used in the logit choice rule below (not in the sens choice rule as the name suggests).  
+		# phi() is the cumulative distribution of the standard normal distribution (inverse probit)
+
+		alpha[j]   <- phi(alpha.phi[j])
+		gamma[j]   <- phi(gamma.phi[j])
+		delta_p[j] <- phi(delta_p.phi[j])	*5
+		delta_m[j] <- phi(delta_m.phi[j]) *5	
+		sens[j]    <- phi(sens.phi[j]) *5
+    lambda[j]  <- phi(lambda.phi[j])*5
+		
+		# We put group-level normals on the individual parameters:
+
+		alpha.phi[j]   ~ dnorm(mu.phi.alpha,    tau.phi.alpha)
+		gamma.phi[j]   ~ dnorm(mu.phi.gamma,    tau.phi.gamma)
+		delta_p.phi[j] ~ dnorm(mu.phi.delta_p,  tau.phi.delta_p)
+		delta_m.phi[j] ~ dnorm(mu.phi.delta_m,  tau.phi.delta_m)
+  	sens.phi[j]    ~ dnorm(mu.phi.sens,     tau.phi.sens)
+  	lambda.phi[j]  ~ dnorm(mu.phi.lambda,   tau.phi.lambda)
+
+
+		
+	}
+
+
+	# Here priors for the hyperdistributions are defined:
+	mu.phi.alpha ~ dnorm(0,1)
+	tau.phi.alpha <- pow(sigma.phi.alpha,-2)
+	sigma.phi.alpha ~ dunif(0,10)
+
+	mu.phi.gamma    ~ dnorm(0,1)
+	tau.phi.gamma  <- pow(sigma.phi.gamma,-2)
+	sigma.phi.gamma ~ dunif(0,10)
+
+	mu.phi.delta_p    ~ dnorm(0,1)
+	tau.phi.delta_p   <- pow(sigma.phi.delta_p,-2)
+	sigma.phi.delta_p ~ dunif(0,10)
+	mu.phi.delta_m    ~ dnorm(0,1)
+	tau.phi.delta_m   <- pow(sigma.phi.delta_m,-2)
+	sigma.phi.delta_m ~ dunif(0,10)
+	
+	mu.phi.lambda    ~ dnorm(0,1)
+	tau.phi.lambda   <- pow(sigma.phi.lambda,-2)
+	sigma.phi.lambda ~ dunif(0,10)
+
+	mu.phi.sens    ~ dnorm(0,1)
+	tau.phi.sens   <- pow(sigma.phi.sens,-2)
+	sigma.phi.sens ~ dunif(0,10)
+
+	
+	# To obtain the mean of the hyper distribution on the wanted scale:
+	mu.alpha   <- phi(mu.phi.alpha) 
+	mu.gamma   <- phi(mu.phi.gamma) 
+	mu.delta_p <- phi(mu.phi.delta_p) *5
+	mu.delta_m <- phi(mu.phi.delta_m) *5
+	mu.lambda  <- phi(mu.phi.lambda)*5
+	mu.sens    <- phi(mu.phi.sens)*5
+	
+	mu.alpha_sebi   <- phi(mu.phi.alpha   / sqrt(1+ pow(sigma.phi.alpha,   2))) 
+	mu.gamma_sebi   <- phi(mu.phi.gamma   / sqrt(1+ pow(sigma.phi.gamma,   2)))
+  mu.delta_p_sebi <- phi(mu.phi.delta_p / sqrt(1+ pow(sigma.phi.delta_p, 2))) *5 
+  mu.delta_m_sebi <- phi(mu.phi.delta_m / sqrt(1+ pow(sigma.phi.delta_m, 2))) *5
+  mu.sens_sebi    <- phi(mu.phi.sens    / sqrt(1+ pow(sigma.phi.sens,    2))) *5
+  mu.lambda_sebi  <- phi(mu.phi.lambda  / sqrt(1+ pow(sigma.phi.lambda,  2))) *5
+  
+
+
+# It is now time to define how the model should be fit to data. 
+
+	for (j in 1:N_parts)# Subject-loop
+	{
+	
+   		for (i in 1:41)# Item-Loop, positive gambles,gamble A
+   		{
+
+# j:s subjective value of outcome 1 in gamble A of gamble-pair i, v.x.a[i,j], equals:
+
+     			v.x.a[i,j] <- pow(lotteries_a[i,1],alpha[j])
+
+# where lotteries_a[i,1] = outcome 1 and alpha[j] = j:s value on the alpha parameter
+# j:s subjective value of outcome 2 in gamble A
+       
+      			v.y.a[i,j] <- pow(lotteries_a[i,3],alpha[j])       
+
+# j:s subjective probability of the relatively more positive outcomes w.y.a[i,j]
+
+     			
+      			w.y.a[i,j] <- delta_p[j]*pow(lotteries_a[i,4],gamma[j]) / z.a[i,j] 
+      			z.a[i,j]   <- delta_p[j]*pow(lotteries_a[i,4],gamma[j]) + pow(lotteries_a[i,2],gamma[j]) 
+
+# j:s subjective value of gamble A in gamble-pair i
+
+      			Vf.a[i,j]  <- (1 - w.y.a[i,j]) * v.x.a[i,j] + w.y.a[i,j] * v.y.a[i,j]
+      
+   		}
+
+
+   		for (i in 1:41)# Item-Loop, positive gambles,gamble B
+   		{
+      			v.x.b[i,j] <- pow(lotteries_b[i,1],alpha[j])       
+      			v.y.b[i,j] <- pow(lotteries_b[i,3],alpha[j])       
+
+      			 
+      			w.y.b[i,j] <- delta_p[j]*pow(lotteries_b[i,4],gamma[j]) / z.b[i,j] 
+      			z.b[i,j]   <- delta_p[j]*pow(lotteries_b[i,2],gamma[j]) + pow(lotteries_b[i,4],gamma[j]) 
+
+      			Vf.b[i,j]  <- (1 - w.y.b[i,j]) * v.x.b[i,j] + w.y.b[i,j] * v.y.b[i,j]
+      
+   		}
+ 
+   		for (i in 1:41)# Item-Loop, positive gambles,choice-rule
+   		{
+
+# It is defined that j:s choice for gamble-pair i is sampled from a Bernoulli-distribution 
+# with p = binval[i,j].
+# The logit choice-rule is used to compute binval[i,j] 
+# (in this case: binval[i,j] = probability of A-choice).
+      
+			binval[i,j] <- (1)/(1+exp((-1*sens[j])*(Vf.a[i,j]-Vf.b[i,j])))
+			age_choices[i,j] ~ dbern(binval[i,j])
+   		}
+
+
+		
+   		for (i in 42:72)# Item-Loop, negative gambles,gamble A
+   		{
+     			v.x.a[i,j] <- (-1) * pow((-1 * lotteries_a[i,1]),alpha[j])       
+      			v.y.a[i,j] <- (-1) * pow((-1 * lotteries_a[i,3]),alpha[j])       
+
+     			w.x.a[i,j] <- delta_m[j]*pow(lotteries_a[i,2],gamma[j]) / z.a[i,j]
+     
+      			z.a[i,j]   <- delta_m[j]*pow(lotteries_a[i,2],gamma[j]) + pow(lotteries_a[i,4],gamma[j]) 
+
+      			Vf.a[i,j]  <- w.x.a[i,j] * v.x.a[i,j] + (1 - w.x.a[i,j]) * v.y.a[i,j]
+      
+   		}
+
+   		for (i in 42:72)# Item-Loop, negative gambles,gamble B
+   		{
+      			v.x.b[i,j] <- (-1) * pow((-1 * lotteries_b[i,1]),alpha[j])       
+      			v.y.b[i,j] <- (-1) * pow((-1 * lotteries_b[i,3]),alpha[j])       
+
+      			w.x.b[i,j] <- delta_m[j]*pow(lotteries_b[i,2],gamma[j]) / z.b[i,j] 
+      			
+      			z.b[i,j]   <- delta_m[j]*pow(lotteries_b[i,2],gamma[j]) + pow(lotteries_b[i,4],gamma[j]) 
+
+      			Vf.b[i,j]  <- w.x.b[i,j] * v.x.b[i,j] + (1 - w.x.b[i,j]) * v.y.b[i,j]
+      
+   		}
+ 
+   		for (i in 42:72)# Item-Loop, negative gambles,choice-rule
+   		{
+      
+      binval[i,j] <- (1)/(1+exp((-1*sens[j])*(Vf.a[i,j]-Vf.b[i,j])))
+			age_choices[i,j] ~ dbern(binval[i,j])
+   		}
+
+
+		for (i in 73:105)# Item-Loop, mixed gambles,gamble A
+   		{
+     		  	v.x.a[i,j] <- pow(lotteries_a[i,3],alpha[j])       
+      			v.y.a[i,j] <- (-1 * lambda[j]) * pow((-1 * lotteries_a[i,1]),alpha[j])       
+
+     			  w.x.a[i,j] <- delta_p[j]*pow(lotteries_a[i,4],gamma[j]) / (delta_p[j]*pow(lotteries_a[i,4],gamma[j]) + pow((1-lotteries_a[i,4]),gamma[j]))
+     			  w.y.a[i,j] <- delta_m[j]*pow(lotteries_a[i,2],gamma[j]) / (delta_m[j]*pow(lotteries_a[i,2],gamma[j]) + pow((1-lotteries_a[i,2]),gamma[j]))
+
+      			Vf.a[i,j]  <- w.x.a[i,j] * v.x.a[i,j] + w.y.a[i,j] * v.y.a[i,j]
+      
+   		}
+
+   		for (i in 73:105)# Item-Loop, mixed gambles,gamble B
+   		{
+      			v.x.b[i,j] <- pow(lotteries_b[i,3],alpha[j])       
+      			v.y.b[i,j] <- (-1 * lambda[j]) * pow((-1 * lotteries_b[i,1]),alpha[j])       
+
+      			w.x.b[i,j] <- delta_p[j]*pow(lotteries_b[i,4],gamma[j]) / (delta_p[j]*pow(lotteries_b[i,4],gamma[j]) + pow((1-lotteries_b[i,4]),gamma[j])) 
+      			w.y.b[i,j] <- delta_m[j]*pow(lotteries_b[i,2],gamma[j]) / (delta_m[j]*pow(lotteries_b[i,2],gamma[j]) + pow((1-lotteries_b[i,2]),gamma[j])) 
+      			
+      			Vf.b[i,j]  <- w.x.b[i,j] * v.x.b[i,j] + w.y.b[i,j] * v.y.b[i,j]
+      
+   		}
+ 
+   		for (i in 73:105)# Item-Loop, mixed gambles,choice-rule
+   		{
+      
+			binval[i,j] <- (1)/(1+exp((-1*sens[j])*(Vf.a[i,j]-Vf.b[i,j])))
+			age_choices[i,j] ~ dbern(binval[i,j])
+   		}
+
+
+ 
+ 	}   
+}
