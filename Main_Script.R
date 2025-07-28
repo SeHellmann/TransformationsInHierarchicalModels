@@ -5,9 +5,6 @@
 #####     Constrain Parameters in Hierarchical Modeling     -
 #####                 Distort Estimation                    -
 
-#(For the full posterior sample files for the simulation study, 
-# visit https://osf.io/c5db7)
-
 
 # Use Alt+o in RStudio to collapse all folds!
 
@@ -302,6 +299,12 @@ variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
 ## Actually do the simulation, save simulation, and model fitting
 ## Only do this, when all analysis should be done again (takes long!)
 if (REDOALLANALYSIS) {
+  collected_samples_restricted <- data.frame()
+  collected_summaries_restricted <- data.frame()
+  collected_true_pop_means_restricted <- data.frame()
+  getpars <-c("alpha", "gamma.loss", "gamma.gain", "lambda", "sens")
+  getpars <- paste0("mu.", getpars, rep(c("", "_sebi"), each=length(getpars)))
+  
   dir.create("saved_details/Recovery_restricted", showWarnings = FALSE)
   N <- VAR <- PHI <- 1
   for (N  in 1:3) { # for each subject ... 
@@ -350,54 +353,33 @@ if (REDOALLANALYSIS) {
         save(Data, params, simulation_pars, rec_samples, rec_summary,
              file=paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
         
-      }
-    }
-  }
-}
-
-## When the fitting is done, we load the results and combine the simulations
-if (!file.exists("saved_details/Collected_recovery_results_restricted.RData")) {
-  collected_samples_restricted <- data.frame()
-  collected_summaries_restricted <- data.frame()
-  collected_true_pop_means_restricted <- data.frame()
-  getpars <-c("alpha", "gamma.loss", "gamma.gain", "lambda", "sens")
-  getpars <- paste0("mu.", getpars, rep(c("", "_sebi"), each=length(getpars)))
-  for (N  in 1:3) {
-    cur_n <- Nsbjs[N]
-    for (VAR in 1:3) {
-      cur_var <- variabilities[VAR]
-      for ( PHI in 1:3) {
-        cur_sens <- phis[PHI]
-        if (file.exists(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
-          ## Load fit results
-          load(paste0("saved_details/Recovery_restricted/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          
-          ## Combine the whole posterior samples of population parameters
-          temp <- rec_samples[,, getpars]    
-          dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
-          colnames(temp) <- getpars     
-          temp <- as.data.frame(temp) 
-          #head(temp)
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_samples_restricted <- rbind(collected_samples_restricted, temp)
-          
-          ## Combine the posterior summaries of population parameters
-          temp <- rec_summary[getpars,]
-          temp <- temp %>% as.data.frame() %>%
-            select(c(1,2,3,5,7)) %>% 
-            rownames_to_column("parname") 
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_summaries_restricted <- rbind(collected_summaries_restricted, temp)
-          
-          ## Combine actual sampled population means
-          load(paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          temp <- colMeans(params) %>% data.frame()  %>% 
-            rownames_to_column("Parameter")
-          colnames(temp)[2] <- "value"
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_true_pop_means_restricted <- rbind(collected_true_pop_means_restricted, temp)
-          
-        }
+        ### Put everything in common data frames
+        
+        ## Combine the whole posterior samples of population parameters
+        temp <- rec_samples[,, getpars]    
+        dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
+        colnames(temp) <- getpars     
+        temp <- as.data.frame(temp) 
+        #head(temp)
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_samples_restricted <- rbind(collected_samples_restricted, temp)
+        
+        ## Combine the posterior summaries of population parameters
+        temp <- rec_summary[getpars,]
+        temp <- temp %>% as.data.frame() %>%
+          select(c(1,2,3,5,7)) %>% 
+          rownames_to_column("parname") 
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_summaries_restricted <- rbind(collected_summaries_restricted, temp)
+        
+        ## Combine actual sampled population means
+        load(paste0("saved_details/Recovery_restricted/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        temp <- colMeans(params) %>% data.frame()  %>% 
+          rownames_to_column("Parameter")
+        colnames(temp)[2] <- "value"
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_true_pop_means_restricted <- rbind(collected_true_pop_means_restricted, temp)
+        
       }
     }
   }
@@ -415,9 +397,9 @@ if (!file.exists("saved_details/Collected_recovery_results_restricted.RData")) {
   
   save(collected_samples_restricted,collected_summaries_restricted, collected_true_pop_means_restricted, 
        file="saved_details/Collected_recovery_results_restricted.RData")
-} else {
-  load("saved_details/Collected_recovery_results_restricted.RData")
 }
+
+load("saved_details/Collected_recovery_results_restricted.RData")
 
 ## 2. Visualize original restricted parameter recovery analysis     ----
 
@@ -901,6 +883,12 @@ variabilities <- c(0.1, 0.5, 1) # btw-sbj variability in parameters
 ## Actually do the simulation, save simulation, and model fitting
 ## Only do this, when all analysis should be done again (takes long!)
 if (REDOALLANALYSIS) {
+  collected_samples <- data.frame()
+  collected_summaries <- data.frame()
+  collected_true_pop_means <- data.frame()
+  getpars <-c("alpha", "beta", "gamma.loss", "gamma.gain", "lambda", "sens")
+  getpars <- paste0("mu.", getpars, rep(c("", "_sebi"), each=length(getpars)))
+  
   dir.create("saved_details/Recovery_full", showWarnings = FALSE)
   N <- VAR <- PHI <- 1
   for (N  in 1:3) {
@@ -943,57 +931,34 @@ if (REDOALLANALYSIS) {
           rec_samples <- rec_samples$BUGSoutput$sims.array
           save(Data, params, simulation_pars, rec_summary, rec_samples, 
                file=paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          
-        }
-      }
-    }
-  }
-}
-
-
-## When the fitting is done, we load the results and combine the simulations
-if (!file.exists("saved_details/Collected_recovery_results.RData")) {
-  collected_samples <- data.frame()
-  collected_summaries <- data.frame()
-  collected_true_pop_means <- data.frame()
-  getpars <-c("alpha", "beta", "gamma.loss", "gamma.gain", "lambda", "sens")
-  getpars <- paste0("mu.", getpars, rep(c("", "_sebi"), each=length(getpars)))
-  for (N  in 1:3) {
-    cur_n <- Nsbjs[N]
-    for (VAR in 1:3) {
-      cur_var <- variabilities[VAR]
-      for ( PHI in 1:3) {
-        cur_sens <- phis[PHI]
-        if (file.exists(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))) {
-          ## Load fit results
+        } else {
           load(paste0("saved_details/Recovery_full/RecoveryResult_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          
-          ## Combine the whole posterior samples of population parameters
-          temp <- rec_samples[,, getpars]    
-          dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
-          colnames(temp) <- getpars     
-          temp <- as.data.frame(temp) 
-          #head(temp)
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_samples <- rbind(collected_samples, temp)
-          
-          ## Combine the posterior summaries of population parameters
-          temp <- rec_summary[getpars,] 
-          temp <- temp %>% as.data.frame() %>%
-            select(c(1,2,3,5,7)) %>% 
-            rownames_to_column("parname") 
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_summaries <- rbind(collected_summaries, temp)
-          
-          ## Combine actual sampled population means
-          load(paste0("saved_details/Recovery_full/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
-          temp <- colMeans(params) %>% data.frame()  %>% 
-            rownames_to_column("Parameter")
-          colnames(temp)[2] <- "value"
-          temp <- cbind(temp, as.data.frame(simulation_pars))
-          collected_true_pop_means <- rbind(collected_true_pop_means, temp)
-          
         }
+        
+        ## Combine the whole posterior samples of population parameters
+        temp <- rec_samples[,, getpars]    
+        dim(temp) <- c(dim(temp)[1]*dim(temp)[2], dim(temp)[3])
+        colnames(temp) <- getpars     
+        temp <- as.data.frame(temp) 
+        #head(temp)
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_samples <- rbind(collected_samples, temp)
+        
+        ## Combine the posterior summaries of population parameters
+        temp <- rec_summary[getpars,] 
+        temp <- temp %>% as.data.frame() %>%
+          select(c(1,2,3,5,7)) %>% 
+          rownames_to_column("parname") 
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_summaries <- rbind(collected_summaries, temp)
+        
+        ## Combine actual sampled population means
+        load(paste0("saved_details/Recovery_full/SampledData_N_", cur_n,"_var_", cur_var, "_phi_", cur_sens,".RData"))
+        temp <- colMeans(params) %>% data.frame()  %>% 
+          rownames_to_column("Parameter")
+        colnames(temp)[2] <- "value"
+        temp <- cbind(temp, as.data.frame(simulation_pars))
+        collected_true_pop_means <- rbind(collected_true_pop_means, temp)
       }
     }
   }
@@ -1011,9 +976,10 @@ if (!file.exists("saved_details/Collected_recovery_results.RData")) {
   
   save(collected_samples,collected_summaries, collected_true_pop_means, 
        file="saved_details/Collected_recovery_results.RData")
-} else {
-  load("saved_details/Collected_recovery_results.RData")
 }
+
+
+load("saved_details/Collected_recovery_results.RData")
 
 ## 2. Visualize original full parameter recovery analysis           ----
 ## Reproduce Nilsson et al. (2011), Figure 2:
