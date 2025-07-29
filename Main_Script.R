@@ -69,6 +69,7 @@ print(getwd())
   library(ggpubr)
   library(viridis)
   library(ggh4x)
+  library(cowplot)
   library(tensr)
   library(readxl)
   library(kableExtra)# For the first table of posteriors

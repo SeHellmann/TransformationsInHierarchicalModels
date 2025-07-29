@@ -16,9 +16,9 @@ dat <- pmap(conditions, function(sign, mu, vars, sigma){
 means <- dat |> 
   group_by(sign, vars) |> 
   summarise(Correct = mean(parameter) , 
-            Original = pnorm(mean(real))) |> 
+            Incorrect = pnorm(mean(real))) |> 
   ungroup() |> 
-  pivot_longer(cols=Correct:Original, values_to = "mean", names_to = "Computation") |> 
+  pivot_longer(cols=Correct:Incorrect, values_to = "mean", names_to = "Computation") |> 
   mutate(dens = NA)
 
 # ... and their densities
@@ -62,10 +62,10 @@ baseplot <-
   tibble(real=seq(-5,5,.01) , parameter=pnorm(real)) |> 
   ggplot(aes(real, parameter)) + 
   geom_line(linewidth=linewidths[1]) +
-  geom_segment(data=og_vline_p, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[2], linewidth=linewidths[1], color=two_colors_transformations[2]) +
-  geom_segment(data=og_hline_p, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[2], linewidth=linewidths[1], color=two_colors_transformations[2], arrow = arrow(length = unit(0.06, "npc"), angle=20, type="open")) +
-  geom_segment(data=og_vline_n, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[1], linewidth=linewidths[1], color=two_colors_transformations[2]) +
-  geom_segment(data=og_hline_n, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[1], linewidth=linewidths[1], color=two_colors_transformations[2], arrow = arrow(length = unit(0.06, "npc"), type="open")) +
+  geom_segment(data=og_vline_p, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[2], linewidth=linewidths[1], color=two_colors_transformations[1]) +
+  geom_segment(data=og_hline_p, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[2], linewidth=linewidths[1], color=two_colors_transformations[1], arrow = arrow(length = unit(0.06, "npc"), angle=20, type="open")) +
+  geom_segment(data=og_vline_n, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[1], linewidth=linewidths[1], color=two_colors_transformations[1]) +
+  geom_segment(data=og_hline_n, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[1], linewidth=linewidths[1], color=two_colors_transformations[1], arrow = arrow(length = unit(0.06, "npc"), type="open")) +
   scale_x_continuous(breaks = seq(-5,5,1),  expand=expand) +
   scale_y_continuous(breaks = seq(0,1,.25),  expand=expand) +
   labs(y = "Parameter Scale" , 
@@ -84,7 +84,7 @@ xma_l <-
   filter(vars=='small') |> 
   ggplot(aes(x=real, linetype=sign)) +
   geom_density(alpha=.5, linewidth=linewidths[2]) +
-  #geom_segment(dat=means |> filter(vars=='small' & Computation=="Original"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
+  #geom_segment(dat=means |> filter(vars=='small' & Computation=="Incorrect"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
   scale_x_continuous(limits=c(-5,5),  expand=expand) +
   scale_y_continuous(expand=expand) + 
   scale_linetype_manual(values=two_lines_variance) +
@@ -100,7 +100,7 @@ yma_l <-
   ggplot(aes(x=parameter, linetype=sign)) +
   geom_density(alpha = .5, linewidth=linewidths[2]) +
   geom_segment(dat=means |> filter(vars=='small' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
-  scale_color_manual(values=two_colors_transformations)+
+  scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
   scale_x_continuous(limits = c(0,1), expand=expand) +
   scale_y_continuous(expand=expand) +
   scale_linetype_manual(values=two_lines_variance) +
@@ -123,7 +123,7 @@ xma_r <-
   theme(legend.position = "none") +
   annotate("text", x = -3.8, y = .2, label = expression(italic(N)(-1, 1)), family="Times") + 
   annotate("text", x = 3.8, y = .2, label = expression(italic(N)(1, 1)),  family="Times") +
-  scale_fill_manual(values = c("#FFFFFF00", "#fc8d62")) 
+  scale_fill_manual(values = c("#FFFFFF00","#fc8d62")) 
 
 ### y marginal -------------------------------------------------------
 
@@ -133,9 +133,9 @@ yma_r <-
   ggplot(aes(x=parameter, linetype=sign)) +
   geom_density(aes(fill=sign), alpha = .3, linewidth=linewidths[2]) +
   geom_segment(dat=means |> filter(vars=='large' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
-  scale_color_manual(values=two_colors_transformations)+
-  scale_fill_manual(values = c("#FFFFFF00", "#1b9e77")) +
-  scale_linetype_manual(name="Mean Original Scale", values=two_lines_variance, 
+  scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
+  scale_fill_manual(values = c("#FFFFFF00","#125e27")) +
+  scale_linetype_manual(name="Mean Incorrect Scale", values=two_lines_variance, 
                         labels = c("p" = expression(mu = 1), "n" = expression(mu = -1))) +
   scale_x_continuous(limits = c(0,1), expand=expand) +
   scale_y_continuous(expand=expand) +
@@ -160,10 +160,9 @@ plot_r <- insert_yaxis_grob(base_xma_r, g_yma_r, position = "right", grid::unit(
 legend <- 
   ggplot(dat=means) +
   geom_segment(aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
-  scale_color_manual(name="Computation", values=two_colors_transformations) +
+  scale_color_manual(name="Computation", values=two_colors_transformations, breaks = c("Incorrect", "Correct")) +
   theme_void()  
 legend <- get_legend2(legend + theme(legend.position = "right", legend.spacing.x = unit(2,'cm')))
-
 
 p_combined <- plot_grid(plot_l, NULL, plot_r, NULL, legend, 
                         nrow=1, ncol=5, rel_widths = c(1,.1,1,.01,.3) , 

@@ -2,8 +2,8 @@ if (grepl("Windows", osVersion)) {
   # To use Times as font on Windows (otherwise ignore the ggplot warnings)
   windowsFonts(Times=windowsFont("Times New Roman"))
 }
-two_colors_transformations <- c("#fc8d62", "#1b9e77")
-three_colors_trafovar <- c("#fc8d62", "#1b9e77", "#8d10bf")
+two_colors_transformations <- c("#fc8d62", "#125e27")
+three_colors_trafovar <- c("#fc8d62", "#125e27", "#8d10bf")
 # color_values <- palette.colors(n = 3, palette = "R4")[-1]
 # color_values <- palette.colors(n = 3, palette = "Okab")[-1] %>% as.character()
 # color_values <- palette.colors(n = 2, palette = "Okab") %>% as.character()
