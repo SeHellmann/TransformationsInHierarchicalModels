@@ -505,7 +505,7 @@ ggplot(plot_differences_df, aes(x=as.factor(var), y=Med))+
   geom_hline(aes(yintercept=0), linetype="dashed")+
   facet_nested(Parameter~"Sample~Size"+N, scales = "free_y", labeller=label_parsed)+ 
   labs(x="Variability between individuals", 
-       y="Induced bias in group-level means (Incorrect-Correct)")+
+       y="Induced bias in group-level means (Incorrect − Correct)")+
   custom_theme+
   theme(panel.spacing= unit(0.1, "cm"))
 ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.eps",
@@ -686,8 +686,8 @@ table_comparison2 <- collected_age_summaries %>% filter(!grepl("sigma", parname)
   rename(Computation=Computation)
 #table_comparison2 <- rbind(names(table_comparison2), table_comparison2)
 #names(table_comparison2) <- c("Parameter", "Computation", "\\multicolumn{2}{c}{Age Group}", "Difference")
-table_comparison2 <- xtable(table_comparison2, align = c("l", "l", "l","|", "c", "c","|", "c"),
-                            caption="\\raggedright Mean and 95\\% CI for posterior distribution of parameters.")
+table_comparison2 <- xtable(table_comparison2, align = c("l", "l", "l","|", "c", "c","|", "c"), label = "tab:age",
+                            caption="\\raggedright Posterior mean and 95\\% CI for the group-level means of the CPT parameters for the \\textcite{Pachur.2017} data as well as of the differences between the older and younger adults. Credible age differences are in bold.")
 addtorow <- list()
 addtorow$pos <- list(c(-1),c(2, 4, 6, 8, 10, 12)) 
 addtorow$command <- c('&&\\multicolumn{2}{|c|}{Age Group}&Difference \\\\', '\\midrule')
@@ -1077,3 +1077,46 @@ ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.png",
 #   labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
 #   theme_bw()
 # 
+
+
+#___________________________________________________________________----
+# Z Example for discussion                                          -----
+
+## Define some parameters
+beta <- -log(3)
+interc <- log(4)
+sigma_randef <- 3
+
+## Simulate only control group for baseline probability
+MlogOR <- interc + rep(rnorm(1e+3, 0,sigma_randef), each=1e+4)
+MOR <- exp(MlogOR)
+mean(MOR)
+mean(MOR/(1+MOR))
+
+
+# ## Generate logistic mixed-model
+# N <- 5000 # Number sbjs per condition per group
+# M <- 5000 # Number of groups (schools in the example)
+# # Predictor
+# X <- rep(c(rep(0, N), rep(1, N)), M)
+# # Random effects and random effects indicator vector
+# C <- rep(1:M, each=2*N)
+# RE <- rnorm(M, 0, sigma_randef)
+
+# Logistic regression formula for the log-ORs
+MlogOR <- interc + beta*X + RE[C]
+
+# "Normal" way to compute OR-changes
+exp(beta)
+
+## Actually, we don't need the simulated random effects,
+## we can compute the marginal probabilities directly using integrate,
+## so, we integrate over  exp(Y)/(1+exp(Y)) * dnorm(randeff) to get the mean
+## probability
+MOR_int <- integrate(function(re) exp(interc + re + dnorm(re, 0, 3, log = TRUE))/(1+exp(interc + re )), lower=-Inf, upper=Inf)
+MOR1_int <- integrate(function(re) exp(interc + beta+  re + dnorm(re, 0, 3, log = TRUE))/(1+exp(interc + beta+  re)), lower=-Inf, upper=Inf)
+p1 <- MOR1_int$value
+p0 <- MOR_int$value
+
+p1/(1-p1) /(p0/(1-p0))
+

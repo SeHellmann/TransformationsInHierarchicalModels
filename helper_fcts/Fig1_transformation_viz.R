@@ -35,8 +35,10 @@ if (!exists("custom_theme")) {
   source('helper_fcts/custom_theme.R') # get Sebi's custom theme
 }
 expand <- c(0.01,0.01) # remove space around axis limits
-two_lines_variance <- c('dotdash', 'solid')
+two_lines_variance <- c('longdash', 'solid')
+two_lines_colors <- c('gray50', 'black')
 linewidths <- c(1,1.5)
+
 
 # to grob legend: https://github.com/wilkelab/cowplot/issues/202#issuecomment-1981765769
 get_legend2 <- function(plot, legend_number = 1) {
@@ -68,8 +70,8 @@ baseplot <-
   geom_segment(data=og_hline_n, aes(x=xbegin, xend=xend, y=ybegin, yend=yend), linetype=two_lines_variance[1], linewidth=linewidths[1], color=two_colors_transformations[1], arrow = arrow(length = unit(0.06, "npc"), type="open")) +
   scale_x_continuous(breaks = seq(-5,5,1),  expand=expand) +
   scale_y_continuous(breaks = seq(0,1,.25),  expand=expand) +
-  labs(y = "Parameter Scale" , 
-       x = "Real Scale") +
+  labs(y = "Parameter scale" , 
+       x = "Real scale") +
   custom_theme
 
 baseplot_l <- 
@@ -82,12 +84,13 @@ baseplot_l <-
 xma_l <- 
   dat |> 
   filter(vars=='small') |> 
-  ggplot(aes(x=real, linetype=sign)) +
-  geom_density(alpha=.5, linewidth=linewidths[2]) +
-  #geom_segment(dat=means |> filter(vars=='small' & Computation=="Incorrect"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
+  ggplot(aes(x=real, linetype=sign, color=sign)) +
+  geom_density(alpha=.5, linewidth=linewidths[1]) +
+  #geom_segment(dat=means |> filter(vars=='small' & Computation=="Incorrect"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[1]) +
   scale_x_continuous(limits=c(-5,5),  expand=expand) +
   scale_y_continuous(expand=expand) + 
   scale_linetype_manual(values=two_lines_variance) +
+  scale_color_manual(values=two_lines_colors) + 
   theme_void() +
   theme(legend.position = "none") +
   annotate("text", x = -3, y = 2, label = expression(italic(N)(-1, .01)),  family="Times") + 
@@ -97,13 +100,16 @@ xma_l <-
 yma_l <- 
   dat |> 
   filter(vars=='small') |> 
-  ggplot(aes(x=parameter, linetype=sign)) +
-  geom_density(alpha = .5, linewidth=linewidths[2]) +
-  geom_segment(dat=means |> filter(vars=='small' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
-  scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
+  ggplot(aes(x=parameter, linetype=sign, color=sign)) +
+  geom_density(alpha = .5, linewidth=linewidths[1]) +
+  geom_segment(dat=means |> filter(vars=='small' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = dens),
+               color = two_colors_transformations[2],
+               linewidth=linewidths[1]) +
+  #scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
   scale_x_continuous(limits = c(0,1), expand=expand) +
   scale_y_continuous(expand=expand) +
   scale_linetype_manual(values=two_lines_variance) +
+  scale_color_manual(values=two_lines_colors) + 
   theme_void() +
   theme(legend.position = "none", 
         axis.title.x = element_blank())
@@ -114,11 +120,12 @@ yma_l90 <- yma_l + coord_flip()
 xma_r <- 
   dat |> 
   filter(vars=='large') |> 
-  ggplot(aes(x=real, linetype=sign)) +
-  geom_density(aes(fill=sign), alpha=.5, linewidth=linewidths[2]) +
+  ggplot(aes(x=real, linetype=sign, color=sign)) +
+  geom_density(aes(fill=sign), alpha=.5, linewidth=linewidths[1]) +
   scale_x_continuous(limits = c(-5,5), expand=expand) +
   scale_y_continuous(expand=expand) + 
   scale_linetype_manual(values=two_lines_variance) +
+  scale_color_manual(values=two_lines_colors) + 
   theme_void() +
   theme(legend.position = "none") +
   annotate("text", x = -3.8, y = .2, label = expression(italic(N)(-1, 1)), family="Times") + 
@@ -130,12 +137,14 @@ xma_r <-
 yma_r <-  
   dat |> 
   filter(vars=='large') |> 
-  ggplot(aes(x=parameter, linetype=sign)) +
-  geom_density(aes(fill=sign), alpha = .3, linewidth=linewidths[2]) +
-  geom_segment(dat=means |> filter(vars=='large' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
-  scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
+  ggplot(aes(x=parameter, linetype=sign, color=sign)) +
+  geom_density(aes(fill=sign), alpha = .3, linewidth=linewidths[1]) +
+  geom_segment(dat=means |> filter(vars=='large' & Computation=="Correct"), aes(x = mean, xend = mean, y = 0, yend = 3.5*dens), 
+              color=two_colors_transformations[2],  linewidth=linewidths[1]) +
+  #scale_color_manual(values=two_colors_transformations, breaks = c("Incorrect", "Correct"))+
   scale_fill_manual(values = c("#FFFFFF00","#125e27")) +
-  scale_linetype_manual(name="Mean Incorrect Scale", values=two_lines_variance, 
+  scale_color_manual(values=two_lines_colors) + 
+  scale_linetype_manual(name="Mean incorrect scale", values=two_lines_variance, 
                         labels = c("p" = expression(mu = 1), "n" = expression(mu = -1))) +
   scale_x_continuous(limits = c(0,1), expand=expand) +
   scale_y_continuous(expand=expand) +
@@ -159,7 +168,7 @@ plot_r <- insert_yaxis_grob(base_xma_r, g_yma_r, position = "right", grid::unit(
 
 legend <- 
   ggplot(dat=means) +
-  geom_segment(aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[2]) +
+  geom_segment(aes(x = mean, xend = mean, y = 0, yend = dens, color=Computation), linewidth=linewidths[1]) +
   scale_color_manual(name="Computation", values=two_colors_transformations, breaks = c("Incorrect", "Correct")) +
   theme_void()  
 legend <- get_legend2(legend + theme(legend.position = "right", legend.spacing.x = unit(2,'cm')))
@@ -169,5 +178,5 @@ p_combined <- plot_grid(plot_l, NULL, plot_r, NULL, legend,
                         labels = c("A","","B","","")) 
 
 # safe
-ggsave("figures/transformations.eps", width=10, height=3.9, unit='in', dpi=900, device = cairo_ps)
+ggsave("figures/transformations.eps", width=8, height=3.2, unit='in', dpi=900, device = cairo_ps)
 ggsave("figures/transformations.jpg", width=10, height=3.9, unit='in', dpi=900)
