@@ -34,7 +34,7 @@ REDOALLANALYSIS <- FALSE
 # D  Re-doing DDM analysis in Fish et al (2018)  ______
 #___________________________________________________________________
 ## 1. Fit hierarchical DDM                                
-## 2. Compare means between groups in both tasks            
+## 2. Compare means between patients and controls            
 #___________________________________________________________________
 #_______                 For Supplement                     ________
 #___________________________________________________________________
@@ -167,7 +167,7 @@ age_data <- read_xlsx("data/PachurEtAl_Who errs, who dares_Data.xlsx",
                       sheet = "Data", 
                       range="A1:B12811" # include to omit the NA warnings for Speed
                       )
-age_data <-age_data %>% 
+age_data <- age_data %>% 
   select(sbj=Subject, group=Age_group) %>%
   distinct()
 young_choices <- all_choices[,{
@@ -209,6 +209,8 @@ if(!file.exists("data/Fish_2018/fish_2018.csv")){
            rt=V3
     ) |> 
     select(task, group, ID, block, block_trial, overall_trial, cond, resp, rt) |> 
+    # Only analyze the data from the patients and controls
+    # and only from the 1-back task
     filter(!(group=='relative' | task==0))
   write_csv(f18_dat,"data/Fish_2018/fish_2018.csv")
 }
@@ -217,9 +219,9 @@ f18_dat <- read_csv("data/Fish_2018/fish_2018.csv") |>
   filter(!rt<.120) |> # exclude trials faster than 120 ms
   mutate(resp_uni=if_else(resp==0, -rt, rt))
 
-make_hddm_JAGS_data <- function(data, group_name, nback){
+make_hddm_JAGS_data <- function(data, group_name){
   # group filter
-  dat_sub <- f18_dat |> filter(group==group_name & task==nback)
+  dat_sub <- f18_dat |> filter(group==group_name)
   # responses
   resp_uni <- dat_sub |> 
     select(ID, overall_trial, resp_uni) |> 
@@ -798,16 +800,14 @@ parameters <- c('a', 'mu.log.a', 'sigma.log.a', 'mu.a', 'simple.a', # upper thre
                 'z', 'mu.probit.z', 'sigma.probit.z', 'mu.z', 'simple.z',
                 'v', 'mu.log.v', 'sigma.log.v', 'mu.v', 'simple.v')
 
-sets <- expand_grid(group=unique(f18_dat$group),
-                    task=unique(f18_dat$task))
+sets <- expand_grid(group=unique(f18_dat$group))
 
-if (!(file.exists("saved_details/Refitted_FishDDM_Data_1_control.RData") &  
-      file.exists("saved_details/Refitted_FishDDM_Data_1_patient.RData"))){
+if (!(file.exists("saved_details/Refitted_FishDDM_Data_control.RData") &  
+      file.exists("saved_details/Refitted_FishDDM_Data_patient.RData"))){
   for(i in seq_len(nrow(sets))){
 
     group <- sets[[i,'group']]
-    task <- sets[[i,'task']]
-    hDDM_dat <- make_hddm_JAGS_data(f18_dat, group_name=group, nback=task)
+    hDDM_dat <- make_hddm_JAGS_data(f18_dat, group_name=group)
   
     res <- jags.parallel(data=hDDM_dat ,
                          inits=inits ,
@@ -822,9 +822,9 @@ if (!(file.exists("saved_details/Refitted_FishDDM_Data_1_control.RData") &
                          )
     res <- list(samples=res$BUGSoutput$sims.array,
                 summaries=res$BUGSoutput$summary)
-    filename <- paste0("saved_details/Refitted_FishDDM_Data_",as.character(task),"_", group,".RData")
+    filename <- paste0("saved_details/Refitted_FishDDM_Data_", group,".RData")
     save(res,file=filename)
-    print(paste("Group:", group, ", Task:", as.character(task), "fitted."))
+    print(paste("Group:", group, " fitted."))
   }
 }
 
@@ -844,12 +844,11 @@ all_samples <- vector('list', length=nrow(sets))
 for(i in seq_len(nrow(sets))){
   
   group <- sets[[i,'group']]
-  task <- sets[[i,'task']]
-  filename <- paste0("saved_details/Refitted_FishDDM_Data_",as.character(task),"_", group,".RData")
+  filename <- paste0("saved_details/Refitted_FishDDM_Data_", group,".RData")
   load(filename)
                 
   all_summaries[[i]] <- cbind(as_tibble(res$summaries[plot_parameters,c("mean", "50%", "2.5%", "97.5%")]), 
-                              group=group, task=task , parname = plot_parameters)
+                              group=group, parname = plot_parameters)
   
   
   dims <- dim(res$samples)
@@ -859,8 +858,7 @@ for(i in seq_len(nrow(sets))){
   names(df_samples) <- params
   
   all_samples[[i]] <- df_samples |> 
-    mutate(group=group ,
-           task=task)
+    mutate(group=group)
   }
 
 all_summaries_df <- bind_rows(all_summaries) |> 
@@ -875,17 +873,16 @@ all_summaries_df <- bind_rows(all_summaries) |>
 
 
 all_samples_df <- bind_rows(all_samples) |> 
-  select(group, task, starts_with("mu") | starts_with("simple")) |> 
+  select(group, starts_with("mu") | starts_with("simple")) |> 
   select(!(starts_with("mu.log") | starts_with("mu.probit")))
 
 
-## 2. Compare means between groups in both tasks  ----
+## 2. Compare means between patients and controls  ----
 
 ### 2.1 Plot ----
 
 pd <- position_dodge(width=0.4)
 all_summaries_df |> 
-  #filter(task==1) |> 
   ggplot(aes(x=group, color=Computation, shape=group))+
   scale_color_manual(name="",values=three_colors_trafovar)+
   geom_point(aes(y=mean), size=3, position=pd)+
@@ -904,7 +901,7 @@ ggsave("figures/DDM_Comparison.png",
 ### 2.2. Table ---- 
 
 DDM_samples_long <- all_samples_df |> 
-  pivot_longer(cols = -c(group, task), names_to = "parname", values_to = "samples") |>
+  pivot_longer(cols = -group, names_to = "parname", values_to = "samples") |>
   mutate(Computation = ifelse(grepl("mu", parname), "Correct", "Incorrect"),
          Parameter = sub("mu.", "", sub("simple.", "", parname)),
          Parameter = factor(Parameter,
@@ -913,7 +910,6 @@ DDM_samples_long <- all_samples_df |>
 
 
 summary_differences <- DDM_samples_long |>
-  #filter(task == 1) |> 
   group_by(Parameter, Computation, group) |> 
   mutate(N = row_number()) |> 
   ungroup() |> 
@@ -943,7 +939,6 @@ table_comparison_DDM <- all_summaries_df |>
     value = paste0(format(round(mean, 2), nsmall = 2), " [",
                    format(round(`2.5%`, 2), nsmall = 2) ,", ",
                    format(round(`97.5%`, 2), nsmall = 2), "]")) |> 
-  filter(task == 1 & group %in% c("control", "relative", "patient")) |> 
   select(group, Parameter, Computation, value) |> 
   bind_rows(summary_differences) |> 
   mutate(Parameter = factor(Parameter,
