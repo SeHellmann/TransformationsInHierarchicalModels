@@ -16,36 +16,29 @@ REDOALLANALYSIS <- FALSE
 # Preamble and imports    
 #___________________________________________________________________
 # A  Read and prepare experimental data define JAGS inputs          
-## 1. Rieskamp (2008) data and gambles                              
-## 2. Pachur et al (2017) age data                                  
+## 1. Rieskamp (2008) gambles                              
+## 2. Pachur et al (2017) age data
+## 3. Fish et al. (2018) DDM data
 #___________________________________________________________________
 #______    Re-doing analysis of Nilsson et al (2011)       _________
 #___________________________________________________________________
-# B  Refitting Rieskamp-data with original model (alpha=beta)       
-## 1. Fit the hierarchical CPT-model                                
-## 2. Compare population means between transformations              
-#___________________________________________________________________
-# C  Re-do (Extended) original simulation study (alpha=beta)        
+# B  Re-do (Extended) original simulation study (alpha=beta)        
 ## 1. Actual parameter recovery analysis                            
 ## 2. Visualize original restricted parameter recovery analysis     
 #___________________________________________________________________
-# D  Re-doing age difference analysis in Pachur et al (2017)  ______
+# C  Re-doing age difference analysis in Pachur et al (2017)  ______
 #___________________________________________________________________
 ## 1. Fit the hierarchical CPT-model                                
 ## 2. Compare means between young and old 
 #___________________________________________________________________
-# E  Re-doing DDM analysis in Fish et al (2018)  ______
+# D  Re-doing DDM analysis in Fish et al (2018)  ______
 #___________________________________________________________________
 ## 1. Fit hierarchical DDM                                
 ## 2. Compare means between groups in both tasks            
 #___________________________________________________________________
 #_______                 For Supplement                     ________
 #___________________________________________________________________
-# F  Refitting Rieskamp-data with original model                    
-## 1. Fit the hierarchical CPT-model                                
-## 2. Compare population means between transformations              
-#___________________________________________________________________
-# G  Re-do (Extended) original simulation study (unconstrained)     
+# E  Re-do (Extended) original simulation study (unconstrained)     
 ## 1. Actual parameter recovery analysis                            
 ## 2. Visualize original full parameter recovery analysis           
 
@@ -88,8 +81,6 @@ print(getwd())
 }
 ## Import simulation function and define JAGS model file names
 source("helper_fcts/simulate_CPT.R")
-original_restricted_model <- "jags_models/cpt_hierarchical_restricted.txt"
-original_full_model <- "jags_models/cpt_hierarchical_model.txt"
 
 original_full_model_recovery <- "jags_models/cpt_hierarchical_recovery.txt"
 original_restricted_model_recovery <- "jags_models/cpt_hierarchical_restricted_recovery.txt"
@@ -106,7 +97,7 @@ source("helper_fcts/Fig2_theoretical_bias_viz.R")
 #___________________________________________________________________----
 # A  Read and prepare experimental data define JAGS inputs          ----
 
-## 1. Rieskamp (2008) data and gambles                              ----
+## 1. Rieskamp (2008) gambles                              ----
 
 # Load information about the gamble-pairs used in Rieskamp (2008). 
 # GambleA.txt and GambleB.txt are structured as follows: 
@@ -138,15 +129,6 @@ for (i in 1:180){
     prospects.b[i,3:4] <- prospects.b.temp[i,1:2] 
   }
 }
-
-# Load data (choice made by the first participant when presented the 
-# second gamble-pair is saved in column 1 row 2; 180 problems x 30 participants)
-rawdata <- as.matrix(read.table("data/Rieskamp_2008_data/Rieskamp_data.txt"))
-
-
-# Define what information that should be passed on to JAGS for the empirical data analysis
-data <- list("prospects.a", "prospects.b", "rawdata") 
-
 
 # Subset mixed gambles for the recovery study and define JAGS-relevant objects
 mixed_prospects.a <- prospects.a[121:180,]
@@ -226,7 +208,8 @@ if(!file.exists("data/Fish_2018/fish_2018.csv")){
            resp=V2 ,
            rt=V3
     ) |> 
-    select(task, group, ID, block, block_trial, overall_trial, cond, resp, rt)
+    select(task, group, ID, block, block_trial, overall_trial, cond, resp, rt) |> 
+    filter(!(group=='relative' | task==0))
   write_csv(f18_dat,"data/Fish_2018/fish_2018.csv")
 }
 
@@ -268,73 +251,10 @@ make_hddm_JAGS_data <- function(data, group_name, nback){
 #___________________________________________________________________----
 #______    Re-doing analysis of Nilsson et al (2011)       _________----
 #___________________________________________________________________----
-# B  Refitting Rieskamp-data with original model (alpha=beta)       ----
 
-## 1. Fit the hierarchical CPT-model                                ----
-
-# Define initial values for parameters 
-inits = function() {
-  list(mu.phi.alpha = 0, sigma.phi.alpha = 1, 
-       mu.phi.gamma.gain = 0, sigma.phi.gamma.gain = 1, 
-       mu.phi.gamma.loss = 0, sigma.phi.gamma.loss = 1,       
-       lmu.lambda = 0, lsigma.lambda = 0.5, 
-       lmu.sens = 0, sigma.phi.sens = 0.5)
-}
-
-
-# Define the variables of interest. JAGS will return these to R when 
-# the analysis is finished (and JAGS is closed).	
-parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
-               "gamma.gain", "mu.phi.gamma.gain", "mu.gamma.gain", "sigma.phi.gamma.gain", "mu.gamma.gain_sebi",
-               "gamma.loss", "mu.phi.gamma.loss", "mu.gamma.loss", "sigma.phi.gamma.loss", "mu.gamma.loss_sebi",
-               "lambda", "lmu.lambda", "mu.lambda", "lsigma.lambda", "mu.sens_sebi",
-               "sens", "lmu.sens", "mu.sens", "lsigma.sens", "mu.lambda_sebi")
-
-## To prevent re-fitting when save results are present
-if (!file.exists("saved_details/Refitted_Data.RData")) {
-  res_rieskamp_restricted =  jags.parallel(data, parameters,
-     model.file = original_restricted_model,
-     inits = inits,
-     n.chains = 5, n.iter = 70000,
-     n.burnin = 6000, n.thin = 20,
-     n.cluster = 5, jags.seed = 10042025)
-  res_rieskamp_restricted <- list(samples=res_rieskamp_restricted$BUGSoutput$sims.array,
-                                  summaries = res_rieskamp_restricted$BUGSoutput$summary)
-  save(res_rieskamp_restricted, file="saved_details/Refitted_Data_restricted.RData")
-}
-
-load("saved_details/Refitted_Data_restricted.RData")
-
-## 2. Compare population means between transformations              ----
-temp_summary <- res_rieskamp_restricted$summaries
-#max(res_rieskamp_restricted$BUGSoutput$summary[,"Rhat"])
-parname <- rownames(temp_summary)
-temp_summary <- as_tibble(temp_summary) %>% mutate(parname = parname)
-group_pars_summary <- temp_summary %>% 
-  filter(grepl(parname, pattern = "mu"))
-
-pd <- position_dodge(width=0.2)
-plt_group_pars_summary <- group_pars_summary %>% 
-  filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
-  mutate(Computation = ifelse(grepl("sebi", parname), "Correct", "Incorrect"),
-         Computation = factor(Computation, levels=c("Incorrect", "Correct")),
-         Parameter = sub("_sebi", "", sub("mu.", "", parname)),
-         Parameter = factor(Parameter, levels=par_names, labels=par_labels))
-
-ggplot(plt_group_pars_summary, aes(x=Parameter, color=Computation))+
-  scale_color_manual(values=two_colors_transformations)+
-  geom_point(aes(y=`50%`), size=3, position=pd)+
-  scale_x_discrete(labels = scales::parse_format())+
-  ylab("Posterior Median (95%CI)")+
-  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
-  custom_theme
-ggsave("figures/Rieskamp_restricted.eps",
-       width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
-ggsave("figures/Rieskamp_restricted.png",
-       width = 17.62, height=9/0.7, units="cm",dpi=900)
 
 #___________________________________________________________________----
-# C  Re-do (Extended) original simulation study (alpha=beta)        ----
+# B  Re-do (Extended) original simulation study (alpha=beta)        ----
 ## 1. Actual parameter recovery analysis                            ----
 
 # Define initial values for parameter
@@ -589,7 +509,7 @@ ggsave("figures/Recovery_restricted_trafodifferences_SUPPLEMENT.png",
 
 
 #___________________________________________________________________----
-# D  Re-doing age difference analysis in Pachur et al (2017)  ______----
+# C  Re-doing age difference analysis in Pachur et al (2017)  ______----
 #___________________________________________________________________----
 ## 1. Fit the hierarchical CPT-model                                ----
 
@@ -848,7 +768,7 @@ print(table_comparison2, type="latex",
 # p_group_comparison
 
 #___________________________________________________________________----
-# E  Re-doing DDM analysis in Fish et al (2018)  ______----
+# D  Re-doing DDM analysis in Fish et al (2018)  ______----
 #___________________________________________________________________----
 ## 1. Fit hierarchical DDM ----
 
@@ -881,30 +801,32 @@ parameters <- c('a', 'mu.log.a', 'sigma.log.a', 'mu.a', 'simple.a', # upper thre
 sets <- expand_grid(group=unique(f18_dat$group),
                     task=unique(f18_dat$task))
 
-for(i in seq_len(nrow(sets))){
+if (!(file.exists("saved_details/Refitted_FishDDM_Data_1_control.RData") &  
+      file.exists("saved_details/Refitted_FishDDM_Data_1_patient.RData"))){
+  for(i in seq_len(nrow(sets))){
 
-  group <- sets[[i,'group']]
-  task <- sets[[i,'task']]
-  hDDM_dat <- make_hddm_JAGS_data(f18_dat, group_name=group, nback=task)
+    group <- sets[[i,'group']]
+    task <- sets[[i,'task']]
+    hDDM_dat <- make_hddm_JAGS_data(f18_dat, group_name=group, nback=task)
   
-  res <- jags.parallel(data=hDDM_dat ,
-                       inits=inits ,
-                       parameters.to.save=parameters ,
-                       model.file=Fish_ddm_model ,
-                       n.chains = 6 ,
-                       n.cluster= 6 , 
-                       n.iter = 35000, 
-                       n.burnin = 5000 , 
-                       n.thin = 10 , 
-                       jags.module = c('wiener')
-                       )
-  res <- list(samples=res$BUGSoutput$sims.array,
-              summaries=res$BUGSoutput$summary)
-  filename <- paste0("saved_details/Refitted_FishDDM_Data_",as.character(task),"_", group,".RData")
-  save(res,file=filename)
-  print(paste("Group:", group, ", Task:", as.character(task), "fitted."))
+    res <- jags.parallel(data=hDDM_dat ,
+                         inits=inits ,
+                         parameters.to.save=parameters ,
+                         model.file=Fish_ddm_model ,
+                         n.chains = 6 ,
+                         n.cluster= 6 , 
+                         n.iter = 35000, 
+                         n.burnin = 5000 , 
+                         n.thin = 10 , 
+                         jags.module = c('wiener')
+                         )
+    res <- list(samples=res$BUGSoutput$sims.array,
+                summaries=res$BUGSoutput$summary)
+    filename <- paste0("saved_details/Refitted_FishDDM_Data_",as.character(task),"_", group,".RData")
+    save(res,file=filename)
+    print(paste("Group:", group, ", Task:", as.character(task), "fitted."))
+  }
 }
-
 
 plot_parameters <- c("mu.a",   "simple.a",
                      "mu.t",   "simple.t",
@@ -941,7 +863,6 @@ for(i in seq_len(nrow(sets))){
            task=task)
   }
 
-
 all_summaries_df <- bind_rows(all_summaries) |> 
   mutate(Statistic = ifelse(grepl("sigma", parname), "Variability","Mean"),
          Computation = ifelse(Statistic=="Variability", "Variability", 
@@ -964,7 +885,7 @@ all_samples_df <- bind_rows(all_samples) |>
 
 pd <- position_dodge(width=0.4)
 all_summaries_df |> 
-  filter(task==1) |> 
+  #filter(task==1) |> 
   ggplot(aes(x=group, color=Computation, shape=group))+
   scale_color_manual(name="",values=three_colors_trafovar)+
   geom_point(aes(y=mean), size=3, position=pd)+
@@ -980,57 +901,6 @@ ggsave("figures/DDM_Comparison.eps",
 ggsave("figures/DDM_Comparison.png",
        width = 17.62, height=9/0.6, units="cm",dpi=900)
 
-# diff_CP <- bind_rows(all_samples) |> 
-#   select(group, task, starts_with("mu") | starts_with("simple")) |> 
-#   select(!(starts_with("mu.log") | starts_with("mu.probit"))) |> 
-#   mutate(sample=row_number(), .by=c(group, task)) |> 
-#   pivot_wider(
-#     id_cols = c(task, sample),
-#     names_from = group,
-#     values_from = -c(group, task, sample),
-#     names_glue = "{.value}_{group}"
-#   ) |> # continue here
-#   mutate(
-#     mu.a.control.patient = mu.a_control - mu.a_patient , 
-#     mu.z.control.patient = mu.z_control - mu.z_patient , 
-#     mu.v1.control.patient = `mu.v[1]_control` - `mu.v[1]_patient` , 
-#     mu.v2.control.patient = `mu.v[2]_control` - `mu.v[2]_patient` ,
-#     mu.t.control.patient = `mu.t_control` - `mu.t_patient` ,
-#     simple.a.control.patient = simple.a_control - simple.a_patient , 
-#     simple.z.control.patient = simple.z_control - simple.z_patient , 
-#     simple.v1.control.patient = `simple.v[1]_control` - `simple.v[1]_patient` , 
-#     simple.v2.control.patient = `simple.v[2]_control` - `simple.v[2]_patient` ,
-#     simple.t.control.patient = simple.t_control - simple.t_patient) |>
-#   select(task, sample, 
-#          mu.a.control.patient, mu.z.control.patient, mu.v1.control.patient, mu.v2.control.patient, mu.t.control.patient,
-#          simple.a.control.patient, simple.z.control.patient, simple.v1.control.patient, simple.v2.control.patient, simple.t.control.patient
-#   ) |> 
-#   pivot_longer(cols = mu.a.control.patient:simple.t.control.patient, 
-#                names_to = "comparison", values_to = "value") |> 
-#   separate(
-#     comparison,
-#     into = c("Computation", "Parameter", NA),
-#     sep = "\\."
-#   ) |> 
-#   mutate(Computation = if_else(Computation=="mu", 'Correct', 'Incorrect'))
-# 
-# 
-# diff_CP |> 
-#   mutate(value=if_else(Parameter=='v1', -value, value)) |> 
-#   filter(task==1) |> 
-#   ggplot(aes(x=value, color=Computation))+
-#   scale_color_manual(name="",values=three_colors_trafovar)+
-#   geom_density(linewidth=1.5)+
-#   geom_vline(xintercept = 0, linetype="dashed", linewidth=1) + 
-#   labs(x="Posterior Difference", 
-#        y="Density",
-#        color="Computation",
-#        title="Differences in Parameter Estimates between Controls and Patients") +
-#   facet_wrap(~Parameter, scales = "free",
-#              labeller = label_parsed, nrow=2)+
-#   custom_theme
-
-
 ### 2.2. Table ---- 
 
 DDM_samples_long <- all_samples_df |> 
@@ -1042,20 +912,18 @@ DDM_samples_long <- all_samples_df |>
                             labels = c("a", "z", "v^'+'", "v^'-'", "t")))
 
 
-summary_differences_1 <- DDM_samples_long |>
-  filter(task == 1) |> 
+summary_differences <- DDM_samples_long |>
+  #filter(task == 1) |> 
   group_by(Parameter, Computation, group) |> 
   mutate(N = row_number()) |> 
   ungroup() |> 
   pivot_wider(id_cols = c(Parameter, Computation, N),
               values_from = samples, names_from = group) |>
-  mutate(diff_control_patient  = control - patient,
-         diff_control_relative = control - relative) |>
-  pivot_longer(cols = c(diff_control_patient, diff_control_relative), 
+  mutate(diff_control_patient  = control - patient) |>
+  pivot_longer(cols = c(diff_control_patient), 
                names_to = "comparison", values_to = "diff") |>
   mutate(comparison = recode(comparison,
-                             diff_control_patient  = "(Control-Patient)",
-                             diff_control_relative = "(Control-Relative)")) |>
+                             diff_control_patient  = "(Control-Patient)")) |>
   group_by(Parameter, Computation, comparison) |> 
   reframe(Lower = quantile(diff, 0.025),
           Upper = quantile(diff, 0.975),
@@ -1068,7 +936,7 @@ summary_differences_1 <- DDM_samples_long |>
   rename(group = comparison)
 
 
-table_comparison_DDM_1 <- all_summaries_df |>
+table_comparison_DDM <- all_summaries_df |>
   filter(!grepl("sigma", parname)) |> 
   mutate(
     Computation = sub(" Mean", "", as.character(Computation)) ,
@@ -1077,7 +945,7 @@ table_comparison_DDM_1 <- all_summaries_df |>
                    format(round(`97.5%`, 2), nsmall = 2), "]")) |> 
   filter(task == 1 & group %in% c("control", "relative", "patient")) |> 
   select(group, Parameter, Computation, value) |> 
-  bind_rows(summary_differences_1) |> 
+  bind_rows(summary_differences) |> 
   mutate(Parameter = factor(Parameter,
                             levels = c("a", "z", "v^'+'", "v^'-'", "t"),
                             labels = c("a", "z", "$v^+$", "$v^-$", "t"))) |> 
@@ -1091,29 +959,27 @@ table_comparison_DDM_1 <- all_summaries_df |>
   rename(Comp. = Computation,
          Param. = Parameter, 
          Control = control,
-         Patient = patient,
-         Relative = relative
+         Patient = patient
          )
 
-table_comparison_DDM_1 <- xtable(table_comparison_DDM_1,
-                                 align = c("l", "l", "l", "|","c", "c", "c", "|","c", "c"),
+table_comparison_DDM <- xtable(table_comparison_DDM,
+                                 align = c("l", "l", "l", "|","c", "c", "|","c"),
                                  label = "tab:DDM",
                                  caption = paste0("\\raggedright Posterior mean and 95\\% CI ",
                                                   "for the group-level means of the DDM ",
                                                   "parameters for the ",
                                                   "\\textcite{fish2018psychiatry_research} ",
                                                   "data as well as posterior differences ",
-                                                  "between controls and patients and ",
-                                                  "between controls and relatives. ",
+                                                  "between controls and patients. ",
                                                   "Credible clinical differences are in bold."))
 
 addtorow <- list()
 addtorow$pos <- list(c(-1), c(2, 4, 6, 8, 10))
-addtorow$command <- c(paste0("&&\\multicolumn{3}{|c|}{Groups}",
-                             "&\\multicolumn{2}{c}{Differences} \\\\"),
+addtorow$command <- c(paste0("&&\\multicolumn{2}{|c|}{Groups}",
+                             "&\\multicolumn{1}{c}{Differences} \\\\"),
                       "\\midrule")
 
-print(table_comparison_DDM_1, type = "latex" ,
+print(table_comparison_DDM, type = "latex" ,
       file = "figures/TableDDMComparison.tex" , 
       sanitize.text.function = function(x){x} ,
       include.rownames = FALSE ,
@@ -1127,73 +993,8 @@ print(table_comparison_DDM_1, type = "latex" ,
 #___________________________________________________________________----
 #_______                 For Supplement                     ________----
 #___________________________________________________________________----
-# F  Refitting Rieskamp-data with original model                    ----
-## 1. Fit the hierarchical CPT-model                                ----
-
-# Define initial values for parameters 
-inits = function() {
-  list(mu.phi.alpha = 0.7, sigma.phi.alpha = 1, 
-       mu.phi.beta = 0.7, sigma.phi.beta = 1,
-       mu.phi.gamma.gain = 0.7, sigma.phi.gamma.gain = 1, 
-       mu.phi.gamma.loss = 0.7, sigma.phi.gamma.loss = 1,
-       lmu.lambda = 0, lsigma.lambda = 0.5, 
-       lmu.sens = 0, sigma.phi.sens = 0.5) 
-}
-
-
-# Define the variables of interest. JAGS will return these to R when 
-# the analysis is finished (and JAGS is closed).	
-parameters = c("alpha", "mu.phi.alpha", "mu.alpha", "sigma.phi.alpha", "mu.alpha_sebi",
-               "beta", "mu.phi.beta", "mu.beta", "sigma.phi.beta", "mu.beta_sebi",
-               "gamma.gain", "mu.phi.gamma.gain", "mu.gamma.gain", "sigma.phi.gamma.gain", "mu.gamma.gain_sebi",
-               "gamma.loss", "mu.phi.gamma.loss", "mu.gamma.loss", "sigma.phi.gamma.loss", "mu.gamma.loss_sebi",
-               "lambda", "lmu.lambda", "mu.lambda", "lsigma.lambda", "mu.sens_sebi",
-               "sens", "lmu.sens", "mu.sens", "lsigma.sens", "mu.lambda_sebi")
-
-## To prevent re-fitting when save results are present
-if (!file.exists("saved_details/Refitted_Data.RData")) {
-  res_rieskamp_1 =  jags.parallel(data,
-                                  parameters,  model.file = original_full_model,
-                                  inits = inits,
-                                  n.chains = 4, n.iter = 20000, n.burnin = 1000, n.thin = 10,
-                                  n.cluster = 4, jags.seed = 531)
-  res_rieskamp_1 <- list(samples=res_rieskamp_1$BUGSoutput$sims.array,
-                         summaries = res_rieskamp_1$BUGSoutput$summary)
-  save(res_rieskamp_1, file="saved_details/Refitted_Data.RData")
-}
-
-load("saved_details/Refitted_Data.RData")
-
-
-## 2. Compare population means between transformations              ----
-temp_summary <- res_rieskamp_1$summaries
-#max(res_rieskamp_1$BUGSoutput$summary[,"Rhat"])
-parname <- rownames(temp_summary)
-temp_summary <- as_tibble(temp_summary) %>% mutate(parname = parname)
-group_pars_summary <- temp_summary %>% 
-  filter(grepl(parname, pattern = "mu"))
-
-pd <- position_dodge(width=0.2)
-plt_group_pars_summary <- group_pars_summary %>% 
-  filter(!grepl("phi", parname) & !grepl("lmu", parname)) %>%
-  mutate(Computation = ifelse(grepl("sebi", parname), "Correct", "Incorrect"), 
-         Computation = factor(Computation, levels=c("Incorrect", "Correct")),
-         Parameter = sub("_sebi", "", sub("mu.", "", parname)))%>%
-  mutate(Parameter = factor(Parameter, levels=par_names, labels=par_labels))
-ggplot(plt_group_pars_summary , aes(x=Parameter, color=Computation))+
-  scale_color_manual(values=two_colors_transformations)+
-  geom_point(aes(y=`50%`), size=3, position=pd)+
-  scale_x_discrete(labels = scales::parse_format())+
-  ylab("Posterior median (95%CI)")+
-  geom_errorbar(aes(ymin=`2.5%`, ymax=`97.5%`), position=pd, width=0.2)+
-  custom_theme
-ggsave("figures/Rieskamp_Original.eps",
-       width = 17.62, height=9/0.7, units="cm",dpi=600, device = cairo_ps)
-ggsave("figures/Rieskamp_Original.png",
-       width = 17.62, height=9/0.7, units="cm",dpi=900)
-
 #___________________________________________________________________----
-# G  Re-do (Extended) original simulation study (unconstrained)     ----
+# E  Re-do (Extended) original simulation study (unconstrained)     ----
 
 ## 1. Actual parameter recovery analysis                            ----
 
@@ -1426,6 +1227,7 @@ ggsave("figures/Recovery_full_posteriorCIs_SUPPLEMENT.png",
 #   labs(y="Parameter values", x="Simulated Sample Size x Sensitivity")+
 #   theme_bw()
 # 
+
 
 
 #___________________________________________________________________----
