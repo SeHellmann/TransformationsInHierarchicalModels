@@ -9,6 +9,7 @@ three_colors_trafovar <- c("#fc8d62", "#125e27", "#8d10bf")
 # color_values <- palette.colors(n = 2, palette = "Okab") %>% as.character()
 custom_theme <- theme_bw()+
   theme(text = element_text(family = "Times", size=12),
+        legend.text = element_text(family="Times", size=12),
         strip.text = element_text(family="Times", size=12),
         legend.position = "bottom",
         plot.margin = margin(0, 0, 0, 0, "cm"),
